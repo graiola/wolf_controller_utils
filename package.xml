@@ -1,0 +1,19 @@
+<?xml version="1.0"?>
+<package format="2">
+  <name>wolf_controller_utils</name>
+  <version>0.0.1</version>
+  <description>
+        The wolf_controller_utils package includes various utils for WoLF.
+  </description>
+
+  <maintainer email="gennaro.raiola@gmail.com">Gennaro Raiola</maintainer>
+
+  <author>Gennaro Raiola</author>
+
+  <license>GNU General Public License v3.0</license>
+
+  <buildtool_depend>catkin</buildtool_depend>
+  <depend>roscpp</depend>
+  <depend>geometry_msgs</depend>
+
+</package>
