@@ -1,13 +1,12 @@
 cmake_minimum_required(VERSION 3.0.2)
 project(wolf_controller_utils)
 
+find_package(PkgConfig)
+pkg_check_modules(EIGEN eigen3)
 find_package(catkin REQUIRED COMPONENTS
     roscpp
     geometry_msgs
 )
-
-find_package(PkgConfig)
-pkg_check_modules(EIGEN eigen3)
 
 include_directories(
     include
