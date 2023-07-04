@@ -229,6 +229,51 @@ inline void rotTransposeToRpy(const Eigen::Matrix3d& R, Eigen::Vector3d& rpy)
   rpy(2) = std::atan2(R(0,1),R(0,0));
 }
 
+
+inline Eigen::Matrix3d zyxToRot(const Eigen::Vector3d& zyx)
+{
+  Eigen::Matrix3d R;
+
+  const double z = zyx(0);
+  const double y = zyx(1);
+  const double x = zyx(2);
+
+  const double c1 = std::cos(z);
+  const double c2 = std::cos(y);
+  const double c3 = std::cos(x);
+  const double s1 = std::sin(z);
+  const double s2 = std::sin(y);
+  const double s3 = std::sin(x);
+
+  const double s2s3 = s2 * s3;
+  const double s2c3 = s2 * c3;
+
+  R << c1 * c2,      c1 * s2s3 - s1 * c3,       c1 * s2c3 + s1 * s3,
+                    s1 * c2,      s1 * s2s3 + c1 * c3,       s1 * s2c3 - c1 * s3,
+                        -s2,                  c2 * s3,                   c2 * c3;
+
+  return R;
+}
+
+inline void zyxToRot(const double& z, const double& y, const double& x, Eigen::Matrix3d& R)
+{
+  R.setZero();
+
+  const double c1 = std::cos(z);
+  const double c2 = std::cos(y);
+  const double c3 = std::cos(x);
+  const double s1 = std::sin(z);
+  const double s2 = std::sin(y);
+  const double s3 = std::sin(x);
+
+  const double s2s3 = s2 * s3;
+  const double s2c3 = s2 * c3;
+
+  R << c1 * c2,      c1 * s2s3 - s1 * c3,       c1 * s2c3 + s1 * s3,
+                    s1 * c2,      s1 * s2s3 + c1 * c3,       s1 * s2c3 - c1 * s3,
+                        -s2,                  c2 * s3,                   c2 * c3;
+}
+
 inline Eigen::Matrix3d rpyToRot(const Eigen::Vector3d& rpy)
 {
   Eigen::Matrix3d R;
