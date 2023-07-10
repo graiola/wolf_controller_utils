@@ -30,6 +30,15 @@
 namespace wolf_controller_utils
 {
 
+inline void fixTFprefix(std::string& tf_prefix)
+{
+  // Check and fix tf_prefix
+  if(tf_prefix == "/")
+    tf_prefix = "";
+  else if (!tf_prefix.empty())
+    tf_prefix = tf_prefix + "/";
+}
+
 class Ramp
 {
 public:
