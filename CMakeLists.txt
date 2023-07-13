@@ -16,13 +16,16 @@ include_directories(
 
 catkin_package(
     INCLUDE_DIRS include
-    LIBRARIES basefoot_estimator
+    LIBRARIES basefoot_estimator trajectory_utils
     )
 
 add_library(basefoot_estimator src/basefoot_estimator.cpp)
 target_link_libraries(basefoot_estimator ${CATKIN_LIBRARIES})
 
-install(TARGETS basefoot_estimator
+add_library(trajectory_utils src/trajectory/trajectory.cpp)
+target_link_libraries(trajectory_utils ${CATKIN_LIBRARIES})
+
+install(TARGETS basefoot_estimator trajectory_utils
   ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
