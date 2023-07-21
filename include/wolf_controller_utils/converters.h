@@ -23,57 +23,85 @@
 #define WOLF_CONTROLLER_UTILS_CONVERTERS_H
 
 #include <Eigen/Core>
+#include <Eigen/Dense>
 #include <geometry_msgs/Pose.h>
 #include <geometry_msgs/Twist.h>
 
+#include <wolf_controller_utils/common.h>
+
 namespace wolf_controller_utils {
+
+template <class MarkerType>
+inline void eigenAffine3dToVisualizationPose(const Eigen::Affine3d& Frame, MarkerType& Marker)
+{
+  Marker.pose.position.x = Frame.translation().x();
+  Marker.pose.position.y = Frame.translation().y();
+  Marker.pose.position.z = Frame.translation().z();
+  Eigen::Quaterniond q(Frame.linear());
+  Marker.pose.orientation.x = q.x();
+  Marker.pose.orientation.y = q.y();
+  Marker.pose.orientation.z = q.z();
+  Marker.pose.orientation.w = q.w();
+}
+
+template <class MarkerType>
+inline void poseToVisualizationPose(const geometry_msgs::Pose& Frame, MarkerType& Marker)
+{
+  Marker.pose.position.x = Frame.position.x;
+  Marker.pose.position.y = Frame.position.y;
+  Marker.pose.position.z = Frame.position.z;
+  Marker.pose.orientation.x = Frame.orientation.x;
+  Marker.pose.orientation.y = Frame.orientation.y;
+  Marker.pose.orientation.z = Frame.orientation.z;
+  Marker.pose.orientation.w = Frame.orientation.w;
+}
 
 inline void affine3dToPose(const Eigen::Affine3d& affine3d, geometry_msgs::Pose& pose)
 {
-    // Translation
-    pose.position.x = affine3d.translation().x();
-    pose.position.y = affine3d.translation().y();
-    pose.position.z = affine3d.translation().z();
-    // Note unfortunately affine3d can not be converted in quaternion directly...
-    // Rotation
-    pose.orientation.x = static_cast<Eigen::Quaterniond>(affine3d.linear()).x();
-    pose.orientation.y = static_cast<Eigen::Quaterniond>(affine3d.linear()).y();
-    pose.orientation.z = static_cast<Eigen::Quaterniond>(affine3d.linear()).z();
-    pose.orientation.w = static_cast<Eigen::Quaterniond>(affine3d.linear()).w();
+  // Translation
+  pose.position.x = affine3d.translation().x();
+  pose.position.y = affine3d.translation().y();
+  pose.position.z = affine3d.translation().z();
+  // Note unfortunately affine3d can not be converted in quaternion directly...
+  // Rotation
+  pose.orientation.x = static_cast<Eigen::Quaterniond>(affine3d.linear()).x();
+  pose.orientation.y = static_cast<Eigen::Quaterniond>(affine3d.linear()).y();
+  pose.orientation.z = static_cast<Eigen::Quaterniond>(affine3d.linear()).z();
+  pose.orientation.w = static_cast<Eigen::Quaterniond>(affine3d.linear()).w();
 }
 
 inline void vector3dToPosePosition(const Eigen::Vector3d& vector3d, geometry_msgs::Pose& pose)
 {
-    // Translation
-    pose.position.x = vector3d.x();
-    pose.position.y = vector3d.y();
-    pose.position.z = vector3d.z();
+  // Translation
+  pose.position.x = vector3d.x();
+  pose.position.y = vector3d.y();
+  pose.position.z = vector3d.z();
 }
 
 inline void quaterniondToPoseOrientation(const Eigen::Quaterniond& quaterniond, geometry_msgs::Pose& pose)
 {
-    // Rotation
-    pose.orientation.x = quaterniond.x();
-    pose.orientation.y = quaterniond.y();
-    pose.orientation.z = quaterniond.z();
-    pose.orientation.w = quaterniond.w();
+  // Rotation
+  pose.orientation.x = quaterniond.x();
+  pose.orientation.y = quaterniond.y();
+  pose.orientation.z = quaterniond.z();
+  pose.orientation.w = quaterniond.w();
 }
 
 inline void vector6dToTwist(const Eigen::Vector6d& vector6d, geometry_msgs::Twist& twist)
 {
-    twist.linear.x  = vector6d(0);
-    twist.linear.y  = vector6d(1);
-    twist.linear.z  = vector6d(2);
-    twist.angular.x = vector6d(3);
-    twist.angular.y = vector6d(4);
-    twist.angular.z = vector6d(5);
+  twist.linear.x  = vector6d(0);
+  twist.linear.y  = vector6d(1);
+  twist.linear.z  = vector6d(2);
+  twist.angular.x = vector6d(3);
+  twist.angular.y = vector6d(4);
+  twist.angular.z = vector6d(5);
 }
 
 inline void vector3dToVector3(const Eigen::Vector3d& vector3d, geometry_msgs::Vector3& vector3)
 {
-    vector3.x = vector3d.x();
-    vector3.y = vector3d.y();
-    vector3.z = vector3d.z();
+  vector3.x = vector3d.x();
+  vector3.y = vector3d.y();
+  vector3.z = vector3d.z();
 }
 
 inline void covarianceToEigen(const boost::array<double, 36>& in, Eigen::Matrix6d& out)
