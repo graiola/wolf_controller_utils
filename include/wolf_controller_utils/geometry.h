@@ -24,14 +24,7 @@
 
 #include <Eigen/Core>
 
-namespace Eigen
-{
-    typedef Matrix<double,6,1> Vector6d;
-    typedef Matrix<double,7,1> Vector7d;
-    typedef Matrix<double,6,6> Matrix6d;
-    typedef Matrix<double,4,3> Matrix4x3d;
-    typedef Matrix<double,3,6> Matrix3x6d;
-}
+#include <wolf_controller_utils/common.h>
 
 namespace wolf_controller_utils
 {
