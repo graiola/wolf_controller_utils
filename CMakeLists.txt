@@ -6,6 +6,9 @@ pkg_check_modules(EIGEN eigen3)
 find_package(catkin REQUIRED COMPONENTS
     roscpp
     geometry_msgs
+    tf2
+    tf2_ros
+    tf2_eigen
 )
 
 include_directories(
@@ -15,8 +18,12 @@ include_directories(
 )
 
 catkin_package(
-    INCLUDE_DIRS include
-    LIBRARIES basefoot_estimator trajectory_utils
+    INCLUDE_DIRS
+        include
+    LIBRARIES
+        basefoot_estimator
+        trajectory_utils
+        pose_getter
     )
 
 add_library(basefoot_estimator src/basefoot_estimator.cpp)
@@ -25,7 +32,10 @@ target_link_libraries(basefoot_estimator ${CATKIN_LIBRARIES})
 add_library(trajectory_utils src/trajectory/trajectory.cpp)
 target_link_libraries(trajectory_utils ${CATKIN_LIBRARIES})
 
-install(TARGETS basefoot_estimator trajectory_utils
+add_library(pose_getter src/pose_getter.cpp)
+target_link_libraries(pose_getter ${CATKIN_LIBRARIES})
+
+install(TARGETS basefoot_estimator trajectory_utils pose_getter
   ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
