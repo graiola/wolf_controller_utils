@@ -24,7 +24,12 @@
 // ROS
 #include <ros/ros.h>
 #include <tf2_ros/transform_listener.h>
+#include <tf2_eigen/tf2_eigen.h>
 #include <geometry_msgs/Pose.h>
+
+// Eigen
+#include <Eigen/Core>
+#include <Eigen/Dense>
 
 namespace wolf_controller_utils
 {
@@ -39,6 +44,8 @@ public:
   PoseGetter();
 
   geometry_msgs::Pose getPose(const std::string& base_link, const std::string& distal_link);
+
+  Eigen::Affine3d getAffine3d(const std::string& base_link, const std::string& distal_link);
 
 private:
 

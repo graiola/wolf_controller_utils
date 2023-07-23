@@ -32,3 +32,10 @@ geometry_msgs::Pose PoseGetter::getPose(const std::string &base_link, const std:
 
   return pose;
 }
+
+Eigen::Affine3d PoseGetter::getAffine3d(const std::string &base_link, const std::string &distal_link)
+{
+  Eigen::Affine3d out;
+  tf2::convert(getPose(base_link,distal_link), out);
+  return out;
+}
