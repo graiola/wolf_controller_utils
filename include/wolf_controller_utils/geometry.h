@@ -56,7 +56,7 @@ inline double angleConv(double angle){
  * @param b
  * @return
  */
-inline double angleDiff(double a,double b){
+inline double angleDiff(double a, double b){
   double dif = fmod(b - a + M_PI,2*M_PI);
   if (dif < 0)
     dif += 2*M_PI;
@@ -69,16 +69,22 @@ inline double angleDiff(double a,double b){
  * @param newAngle
  * @return
  */
-inline double unwrap(double previousAngle,double newAngle){
+inline double unwrap(double previousAngle, double newAngle){
   return previousAngle - angleDiff(newAngle,angleConv(previousAngle));
 }
 
-inline Eigen::Vector3d unwrap(Eigen::Vector3d& previousAngles, Eigen::Vector3d& newAngles)
+inline Eigen::Vector3d unwrap(const Eigen::Vector3d& previousAngles, const Eigen::Vector3d& newAngles)
 {
   Eigen::Vector3d outAngles;
   for (unsigned int i=0; i<3; i++)
     outAngles(i) = previousAngles(i) - angleDiff(newAngles(i),angleConv(previousAngles(i)));
   return outAngles;
+}
+
+inline void unwrap(const Eigen::Vector3d& previousAngles, Eigen::Vector3d& newAngles)
+{
+  for (unsigned int i=0; i<3; i++)
+    newAngles(i) = previousAngles(i) - angleDiff(newAngles(i),angleConv(previousAngles(i)));
 }
 
 /* wrap x -> [0,max) */
