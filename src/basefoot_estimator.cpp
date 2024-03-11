@@ -48,8 +48,14 @@ void BasefootEstimator::update()
   base_T_basefoot_.translation().x() = 0.0;
   base_T_basefoot_.translation().y() = 0.0;
   base_T_basefoot_.translation().z() = -estimateHeight();
+  rotToRpy(odom_T_base_.linear(),tmp_v_);
+  tmp_v_(2) = 0.0;
+  rpyToRot(tmp_v_,tmp_R_);
+  base_T_basefoot_.linear() = tmp_R_;
 
   // Create odom_T_basefoot
+  tmp_v_.setZero();
+  tmp_R_.setIdentity();
   tmp_v_ =  odom_T_base_.translation();
   tmp_v_(2) = tmp_v_(2) + base_T_basefoot_.translation().z();
   double base_yaw   = std::atan2(odom_T_base_.linear()(1,0),odom_T_base_.linear()(0,0));
