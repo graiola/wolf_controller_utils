@@ -55,6 +55,9 @@ private:
     Eigen::Isometry3d odom_T_basefoot_;
     Eigen::Isometry3d odom_T_base_;
     Eigen::Isometry3d basefoot_T_odom_;
+    Eigen::Matrix3d odom_R_hf_;
+    Eigen::Matrix3d hf_R_base_;
+
 
     Eigen::Vector3d tmp_v_;
     Eigen::Matrix3d tmp_R_;
