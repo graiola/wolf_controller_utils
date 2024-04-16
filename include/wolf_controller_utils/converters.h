@@ -73,6 +73,29 @@ inline Eigen::Affine3d transformStampedToAffine3d(const geometry_msgs::Transform
     return affine;
 }
 
+inline geometry_msgs::TransformStamped affine3dToTransformStamped(const Eigen::Affine3d& affine, const std::string& parent_frame, const std::string& child_frame, const ros::Time& stamp)
+{
+    geometry_msgs::TransformStamped transform_stamped;
+
+    transform_stamped.header.stamp = stamp;
+    transform_stamped.header.frame_id = parent_frame;
+    transform_stamped.child_frame_id = child_frame;
+
+    // Extract translation
+    transform_stamped.transform.translation.x = affine.translation().x();
+    transform_stamped.transform.translation.y = affine.translation().y();
+    transform_stamped.transform.translation.z = affine.translation().z();
+
+    // Extract rotation
+    Eigen::Quaterniond q(affine.rotation());
+    transform_stamped.transform.rotation.x = q.x();
+    transform_stamped.transform.rotation.y = q.y();
+    transform_stamped.transform.rotation.z = q.z();
+    transform_stamped.transform.rotation.w = q.w();
+
+    return transform_stamped;
+}
+
 inline Eigen::Affine3d poseToAffine3d(const geometry_msgs::Pose &in)
 {
   Eigen::Affine3d out;
