@@ -28,10 +28,66 @@
 #include <geometry_msgs/Twist.h>
 #include <geometry_msgs/PoseStamped.h>
 #include <geometry_msgs/TransformStamped.h>
+#include <nav_msgs/Odometry.h>
 
 #include <wolf_controller_utils/common.h>
 
 namespace wolf_controller_utils {
+
+inline nav_msgs::Odometry affine3dToOdometry(const Eigen::Affine3d& affine, const std::string& frame_id, const std::string& child_frame_id)
+{
+    nav_msgs::Odometry odometry_msg;
+    odometry_msg.header.stamp = ros::Time::now();
+    odometry_msg.header.frame_id = frame_id;
+    odometry_msg.child_frame_id = child_frame_id;
+
+    // Extract translation components
+    odometry_msg.pose.pose.position.x = affine.translation().x();
+    odometry_msg.pose.pose.position.y = affine.translation().y();
+    odometry_msg.pose.pose.position.z = affine.translation().z();
+
+    // Extract rotation components
+    Eigen::Quaterniond quaternion(affine.rotation());
+    odometry_msg.pose.pose.orientation.w = quaternion.w();
+    odometry_msg.pose.pose.orientation.x = quaternion.x();
+    odometry_msg.pose.pose.orientation.y = quaternion.y();
+    odometry_msg.pose.pose.orientation.z = quaternion.z();
+
+    return odometry_msg;
+}
+
+inline Eigen::Affine3d transformStampedToAffine3d(const geometry_msgs::TransformStamped& transformStamped) {
+    // Convert translation and rotation to Eigen data types
+    Eigen::Translation3d translation(transformStamped.transform.translation.x,
+                                     transformStamped.transform.translation.y,
+                                     transformStamped.transform.translation.z);
+    Eigen::Quaterniond rotation(transformStamped.transform.rotation.w,
+                                transformStamped.transform.rotation.x,
+                                transformStamped.transform.rotation.y,
+                                transformStamped.transform.rotation.z);
+
+    // Create an Affine3d transformation matrix
+    Eigen::Affine3d affine;
+    affine = translation * rotation;
+
+    return affine;
+}
+
+inline Eigen::Affine3d poseToAffine3d(const geometry_msgs::Pose &in)
+{
+  Eigen::Affine3d out;
+
+  // Set translation components
+  out.translation().x() = in.position.x;
+  out.translation().y() = in.position.y;
+  out.translation().z() = in.position.z;
+
+  // Set rotation components
+  Eigen::Quaterniond q(in.orientation.w, in.orientation.x, in.orientation.y, in.orientation.z);
+  out.linear() = q.toRotationMatrix();
+
+  return out;
+}
 
 inline geometry_msgs::TransformStamped poseStampedToTransformStamped(
   const geometry_msgs::PoseStamped & in,
@@ -53,7 +109,7 @@ inline geometry_msgs::TransformStamped poseStampedToTransformStamped(
 }
 
 template <class MarkerType>
-inline void eigenAffine3dToVisualizationPose(const Eigen::Affine3d& Frame, MarkerType& Marker)
+inline void affine3dToVisualizationPose(const Eigen::Affine3d& Frame, MarkerType& Marker)
 {
   Marker.pose.position.x = Frame.translation().x();
   Marker.pose.position.y = Frame.translation().y();
