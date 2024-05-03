@@ -9,6 +9,8 @@ find_package(catkin REQUIRED COMPONENTS
     tf2
     tf2_ros
     tf2_eigen
+    srdfdom
+    urdf
 )
 
 include_directories(
@@ -24,6 +26,10 @@ catkin_package(
         basefoot_estimator
         trajectory_utils
         pose_getter
+        srdf_parser
+    CATKIN_DEPENDS
+        srdfdom
+        urdf
     )
 
 add_library(basefoot_estimator src/basefoot_estimator.cpp)
@@ -35,7 +41,10 @@ target_link_libraries(trajectory_utils ${CATKIN_LIBRARIES})
 add_library(pose_getter src/pose_getter.cpp)
 target_link_libraries(pose_getter ${CATKIN_LIBRARIES})
 
-install(TARGETS basefoot_estimator trajectory_utils pose_getter
+add_library(srdf_parser src/srdf_parser.cpp)
+target_link_libraries(srdf_parser ${CATKIN_LIBRARIES})
+
+install(TARGETS basefoot_estimator trajectory_utils pose_getter srdf_parser
   ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
