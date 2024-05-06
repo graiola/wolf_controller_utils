@@ -10,121 +10,132 @@ SRDFParser::SRDFParser()
 
 }
 
-SRDFParser::SRDFParser(const std::string& robot_namespace)
-  :nh_(robot_namespace)
+void SRDFParser::parseSRDF(const std::string& robot_namespace)
 {
+  nh_ = ros::NodeHandle(robot_namespace);
 
-}
-
-void SRDFParser::setNodeHandle(ros::NodeHandle& nh)
-{
-  nh_ = nh;
-}
-
-std::vector<std::string> SRDFParser::parseJointNames()
-{
-  std::vector<std::string> joint_names;
   srdf::Model srdf_model;
   if(parseSRDF(srdf_model))
   {
+    robot_model_name_ = srdf_model.getName();
+
+    for(unsigned int i=0;i < srdf_model.getGroups().size(); i++)
+    {
+      const auto& chains = srdf_model.getGroups()[i].chains_;
+      const auto& joints = srdf_model.getGroups()[i].joints_;
+      const auto& links  = srdf_model.getGroups()[i].links_;
+
+      // Parse the foot tip_link from the SRDF file
+      if(srdf_model.getGroups()[i].name_.find("leg") != std::string::npos)
+      {
+        leg_names_.push_back(srdf_model.getGroups()[i].name_);
+        for(unsigned int j=0;j<chains.size();j++)
+          foot_names_.push_back(chains[j].second);
+        for(unsigned int j=0;j<joints.size();j++)
+          joint_leg_names_[srdf_model.getGroups()[i].name_].push_back(joints[j]);
+      }
+      // Parse the arm tip_link from the SRDF file
+      if(srdf_model.getGroups()[i].name_.find("arm") != std::string::npos)
+      {
+        arm_names_.push_back(srdf_model.getGroups()[i].name_);
+        for(unsigned int j=0;j<chains.size();j++)
+          ee_names_.push_back(chains[j].second);
+        for(unsigned int j=0;j<joints.size();j++)
+          joint_arm_names_[srdf_model.getGroups()[i].name_].push_back(joints[j]);
+      }
+      // Parse the hip tip_link from the SRDF file
+      if(srdf_model.getGroups()[i].name_.find("hip") != std::string::npos)
+      {
+        for(unsigned int j=0;j<chains.size();j++)
+          hip_names_.push_back(chains[j].second);
+      }
+      // Parse the base link name from the SRDF file
+      if(srdf_model.getGroups()[i].name_.find("base") != std::string::npos)
+      {
+        if(links.size()==1)
+          base_name_ = links[0];
+        else
+          throw std::runtime_error("There can be only one base defined in the SRDF file!");
+      }
+      // Parse the imu link name from the SRDF file
+      if(srdf_model.getGroups()[i].name_.find("imu") != std::string::npos)
+      {
+        if(links.size()==1)
+          imu_name_ = links[0];
+        else
+          throw std::runtime_error("There can be only one imu defined in the SRDF file!");
+      }
+    }
+    // Parse the joint names from the standup groupstate
     auto group_states = srdf_model.getGroupStates();
     for(unsigned int i=0;i<group_states.size();i++)
       if(group_states[i].name_ == "standup") // Look for the standup group state and get the names of the joints in there
         for(auto & tmp : group_states[i].joint_values_)
-          joint_names.push_back(tmp.first);
+          joint_names_.push_back(tmp.first);
+
   }
-  return joint_names;
+  else
+    throw std::runtime_error("Can not parse the SRDF file!");
 }
 
-std::string SRDFParser::parseImuLinkName()
+std::vector<std::string> SRDFParser::getJointNames()
 {
-  std::string imu_name;
-  srdf::Model srdf_model;
-
-  if(parseSRDF(srdf_model))
-  {
-    auto groups = srdf_model.getGroups();
-    for(unsigned int i=0;i < groups.size(); i++)
-    {
-      const auto& links  = groups[i].links_;
-      if(groups[i].name_.find("imu") != std::string::npos)
-      {
-        if(links.size()==1)
-          imu_name = links[0];
-        else
-          throw std::runtime_error("There can be only one imu_sensor defined in the SRDF file!");
-      }
-    }
-  }
-  return imu_name;
+  return joint_names_;
 }
 
-std::string SRDFParser::parseBaseLinkName()
+std::string SRDFParser::getImuLinkName()
 {
-  std::string base_name;
-  srdf::Model srdf_model;
-  if(parseSRDF(srdf_model))
-  {
-    auto groups = srdf_model.getGroups();
-    for(unsigned int i=0;i < groups.size(); i++)
-    {
-      const auto& links  = groups[i].links_;
-      if(groups[i].name_.find("base") != std::string::npos)
-      {
-        if(links.size()==1)
-          base_name = links[0];
-        else
-          throw std::runtime_error("There can be only one base defined in the SRDF file!");
-      }
-    }
-  }
-  return base_name;
+  return imu_name_;
 }
 
-std::vector<std::string> SRDFParser::parseContactNames()
+std::string SRDFParser::getBaseLinkName()
 {
-  std::vector<std::string> contact_names;
-  srdf::Model srdf_model;
-  if(parseSRDF(srdf_model))
-  {
-    auto groups = srdf_model.getGroups();
-    for(unsigned int i=0;i < groups.size(); i++)
-    {
-      const auto& links  = groups[i].links_;
-      if(groups[i].name_.find("contacts") != std::string::npos)
-        for(unsigned int j=0;j<links.size();j++)
-          contact_names.push_back(links[j]);
-    }
-  }
-  return contact_names;
+  return base_name_;
 }
 
-std::vector<std::string> SRDFParser::parseHipNames()
+std::vector<std::string> SRDFParser::getContactNames()
 {
-  std::vector<std::string> hip_names;
-  srdf::Model srdf_model;
-  if(parseSRDF(srdf_model))
-  {
-    auto groups = srdf_model.getGroups();
-    for(unsigned int i=0;i < groups.size(); i++)
-    {
-      const auto& chains = groups[i].chains_;
-      if(groups[i].name_.find("hip") != std::string::npos)
-        for(unsigned int j=0;j<chains.size();j++)
-          hip_names.push_back(chains[j].second);
-    }
-  }
-  return hip_names;
+  return contact_names_;
 }
 
-std::vector<std::string> SRDFParser::parseArmNames()
+std::vector<std::string> SRDFParser::getHipNames()
 {
-  return parseGroupNames("arm");
+  return hip_names_;
 }
 
-std::vector<std::string> SRDFParser::parseLegNames()
+std::vector<std::string> SRDFParser::getArmNames()
 {
-  return parseGroupNames("leg");
+  return arm_names_;
+}
+
+std::vector<std::string> SRDFParser::getLegNames()
+{
+  return leg_names_;
+}
+
+std::vector<std::string> SRDFParser::getEndEffectorNames()
+{
+  return ee_names_;
+}
+
+std::vector<std::string> SRDFParser::getFootNames()
+{
+  return foot_names_;
+}
+
+SRDFParser::joints_map_t SRDFParser::getJointLegNames()
+{
+  return joint_leg_names_;
+}
+
+SRDFParser::joints_map_t SRDFParser::getJointArmNames()
+{
+  return joint_arm_names_;
+}
+
+std::string SRDFParser::getRobotModelName()
+{
+  return robot_model_name_;
 }
 
 bool SRDFParser::parseSRDF(srdf::Model& srdf_model)
@@ -149,21 +160,4 @@ bool SRDFParser::parseSRDF(srdf::Model& srdf_model)
   }
 
   return true;
-
-}
-
-std::vector<std::string> SRDFParser::parseGroupNames(const std::string& group_name)
-{
-  std::vector<std::string> names;
-  srdf::Model srdf_model;
-  if(parseSRDF(srdf_model))
-  {
-    auto groups = srdf_model.getGroups();
-    for(unsigned int i=0;i < groups.size(); i++)
-    {
-      if(groups[i].name_.find(group_name) != std::string::npos)
-          names.push_back(groups[i].name_);
-    }
-  }
-  return names;
 }
