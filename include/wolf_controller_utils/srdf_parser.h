@@ -42,18 +42,21 @@ public:
 
     void parseSRDF(const std::string& robot_namespace);
 
-    std::vector<std::string> getJointNames();
-    std::string getImuLinkName();
-    std::string getBaseLinkName();
-    std::vector<std::string> getContactNames();
-    std::vector<std::string> getHipNames();
-    std::vector<std::string> getArmNames();
-    std::vector<std::string> getLegNames();
-    std::vector<std::string> getEndEffectorNames();
-    std::vector<std::string> getFootNames();
-    joints_map_t getJointLegNames();
-    joints_map_t getJointArmNames();
-    std::string getRobotModelName();
+    const std::vector<std::string>& getJointNames();
+    const std::string& getImuLinkName();
+    const std::string& getBaseLinkName();
+    const std::vector<std::string>& getContactNames();
+    const std::vector<std::string>& getHipNames();
+    const std::vector<std::string>& getArmNames();
+    const std::vector<std::string>& getLegNames();
+    const std::vector<std::string>& getEndEffectorNames();
+    const std::vector<std::string>& getFootNames();
+    const joints_map_t& getJointLegNames();
+    const joints_map_t& getJointArmNames();
+    const std::string& getRobotModelName();
+
+    const std::string& getSRDFString();
+    const std::string& getURDFString();
 
 protected:
 
@@ -72,6 +75,9 @@ protected:
 
     joints_map_t joint_leg_names_;
     joints_map_t joint_arm_names_;
+
+    std::string urdf_;
+    std::string srdf_;
 
     bool parseSRDF(srdf::Model& srdf_model);
     std::vector<std::string> parseGroupNames(const std::string& group_name);

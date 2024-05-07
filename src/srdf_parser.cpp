@@ -78,82 +78,91 @@ void SRDFParser::parseSRDF(const std::string& robot_namespace)
     throw std::runtime_error("Can not parse the SRDF file!");
 }
 
-std::vector<std::string> SRDFParser::getJointNames()
+const std::string& SRDFParser::getSRDFString()
+{
+  return srdf_;
+}
+
+const std::string& SRDFParser::getURDFString()
+{
+  return urdf_;
+}
+
+const std::vector<std::string>& SRDFParser::getJointNames()
 {
   return joint_names_;
 }
 
-std::string SRDFParser::getImuLinkName()
+const std::string& SRDFParser::getImuLinkName()
 {
   return imu_name_;
 }
 
-std::string SRDFParser::getBaseLinkName()
+const std::string& SRDFParser::getBaseLinkName()
 {
   return base_name_;
 }
 
-std::vector<std::string> SRDFParser::getContactNames()
+const std::vector<std::string>& SRDFParser::getContactNames()
 {
   return contact_names_;
 }
 
-std::vector<std::string> SRDFParser::getHipNames()
+const std::vector<std::string>& SRDFParser::getHipNames()
 {
   return hip_names_;
 }
 
-std::vector<std::string> SRDFParser::getArmNames()
+const std::vector<std::string>& SRDFParser::getArmNames()
 {
   return arm_names_;
 }
 
-std::vector<std::string> SRDFParser::getLegNames()
+const std::vector<std::string>& SRDFParser::getLegNames()
 {
   return leg_names_;
 }
 
-std::vector<std::string> SRDFParser::getEndEffectorNames()
+const std::vector<std::string>& SRDFParser::getEndEffectorNames()
 {
   return ee_names_;
 }
 
-std::vector<std::string> SRDFParser::getFootNames()
+const std::vector<std::string>& SRDFParser::getFootNames()
 {
   return foot_names_;
 }
 
-SRDFParser::joints_map_t SRDFParser::getJointLegNames()
+const SRDFParser::joints_map_t& SRDFParser::getJointLegNames()
 {
   return joint_leg_names_;
 }
 
-SRDFParser::joints_map_t SRDFParser::getJointArmNames()
+const SRDFParser::joints_map_t& SRDFParser::getJointArmNames()
 {
   return joint_arm_names_;
 }
 
-std::string SRDFParser::getRobotModelName()
+const std::string& SRDFParser::getRobotModelName()
 {
   return robot_model_name_;
 }
 
 bool SRDFParser::parseSRDF(srdf::Model& srdf_model)
 {
-  std::string srdf, urdf;
-  if(!nh_.getParam("robot_description",urdf))
+  if(!nh_.getParam("robot_description",urdf_))
   {
     ROS_ERROR_NAMED(CLASS_NAME,"robot_description not available in the ros param server");
     return false;
   }
-  if(!nh_.getParam("robot_description_semantic",srdf))
+  if(!nh_.getParam("robot_description_semantic",srdf_))
   {
     ROS_ERROR_NAMED(CLASS_NAME,"robot_description_semantic not available in the ros param server");
     return false;
   }
 
-  urdf::ModelInterfaceSharedPtr u = urdf::parseURDF(urdf);
-  if(!srdf_model.initString(*u,srdf))
+  urdf::ModelInterfaceSharedPtr u = urdf::parseURDF(urdf_);
+  if(!srdf_model.initString(*u,srdf_))
   {
     ROS_ERROR_NAMED(CLASS_NAME,"Can not initialize SRDF model from XML string!");
     return false;
