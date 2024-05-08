@@ -1,4 +1,5 @@
 #include "wolf_controller_utils/srdf_parser.h"
+#include "wolf_controller_utils/tools.h"
 
 #include <urdf_parser/urdf_parser.h>
 #include <srdfdom/srdf_writer.h>
@@ -72,6 +73,10 @@ void SRDFParser::parseSRDF(const std::string& robot_namespace)
       if(group_states[i].name_ == "standup") // Look for the standup group state and get the names of the joints in there
         for(auto & tmp : group_states[i].joint_values_)
           joint_names_.push_back(tmp.first);
+
+    hip_names_ = sortByLegPrefix(hip_names_);
+    foot_names_ = sortByLegPrefix(foot_names_);
+    leg_names_ = sortByLegPrefix(leg_names_);
 
   }
   else
