@@ -34,6 +34,22 @@
 
 namespace wolf_controller_utils {
 
+inline Eigen::Affine3d odometryToAffine3d(const nav_msgs::Odometry &odom)
+{
+    Eigen::Affine3d transform = Eigen::Affine3d::Identity();
+
+    // Extract the position
+    const auto &position = odom.pose.pose.position;
+    transform.translation() << position.x, position.y, position.z;
+
+    // Extract the orientation
+    const auto &orientation = odom.pose.pose.orientation;
+    Eigen::Quaterniond quat(orientation.w, orientation.x, orientation.y, orientation.z);
+    transform.rotate(quat);
+
+    return transform;
+}
+
 inline nav_msgs::Odometry affine3dToOdometry(const Eigen::Affine3d& affine, const std::string& frame_id, const std::string& child_frame_id)
 {
     nav_msgs::Odometry odometry_msg;
