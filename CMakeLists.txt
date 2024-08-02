@@ -1,55 +1,68 @@
-cmake_minimum_required(VERSION 3.0.2)
+cmake_minimum_required(VERSION 3.5)
 project(wolf_controller_utils)
+
+# ROS
+find_package(catkin QUIET)
+find_package(ament_cmake QUIET)
+if(${catkin_FOUND})
+    set(ROS_DEFINITION "ROS")
+    catkin_package(
+        INCLUDE_DIRS include
+        LIBRARIES basefoot_estimator trajectory_utils pose_getter srdf_parser
+        CATKIN_DEPENDS srdfdom urdf
+    )
+    message(STATUS "Add ROS definition")
+elseif(${ament_cmake_FOUND})
+    set(ROS_DEFINITION "ROS2")
+    ament_export_include_directories(include)
+    ament_export_libraries(basefoot_estimator trajectory_utils pose_getter srdf_parser)
+    ament_package()
+    message(STATUS "Add ROS2 definition")
+endif()
 
 find_package(PkgConfig)
 pkg_check_modules(EIGEN eigen3)
-find_package(catkin REQUIRED COMPONENTS
-    roscpp
-    geometry_msgs
-    tf2
-    tf2_ros
-    tf2_eigen
-    srdfdom
-    urdf
-)
+find_package(geometry_msgs REQUIRED)
+find_package(tf2 REQUIRED)
+find_package(tf2_ros REQUIRED)
+find_package(tf2_eigen REQUIRED)
+find_package(srdfdom REQUIRED)
+find_package(urdf REQUIRED)
 
 include_directories(
     include
     ${EIGEN_INCLUDE_DIRS}
-    ${catkin_INCLUDE_DIRS}
+    ${geometry_msgs_INCLUDE_DIRS}
+    ${tf2_INCLUDE_DIRS}
+    ${tf2_ros_INCLUDE_DIRS}
+    ${tf2_eigen_INCLUDE_DIRS}
+    ${srdfdom_INCLUDE_DIRS}
+    ${urdf_INCLUDE_DIRS}
 )
 
-catkin_package(
-    INCLUDE_DIRS
-        include
-    LIBRARIES
-        basefoot_estimator
-        trajectory_utils
-        pose_getter
-        srdf_parser
-    CATKIN_DEPENDS
-        srdfdom
-        urdf
-    )
+add_compile_definitions(${ROS_DEFINITION})
 
-add_library(basefoot_estimator src/basefoot_estimator.cpp)
-target_link_libraries(basefoot_estimator ${CATKIN_LIBRARIES})
+# Define libraries and link the helper target to propagate the definitions
+add_library(basefoot_estimator SHARED src/basefoot_estimator.cpp)
 
-add_library(trajectory_utils src/trajectory/trajectory.cpp)
-target_link_libraries(trajectory_utils ${CATKIN_LIBRARIES})
+add_library(trajectory_utils SHARED src/trajectory/trajectory.cpp)
 
-add_library(pose_getter src/pose_getter.cpp)
-target_link_libraries(pose_getter ${CATKIN_LIBRARIES})
+add_library(pose_getter SHARED include/${PROJECT_NAME}/pose_getter.h src/pose_getter.cpp)
+target_link_libraries(pose_getter ${geometry_msgs_LIBRARIES} ${tf2_LIBRARIES} ${tf2_ros_LIBRARIES} ${tf2_eigen_LIBRARIES})
+target_compile_definitions(pose_getter PUBLIC ${ROS_DEFINITION})
 
-add_library(srdf_parser src/srdf_parser.cpp)
-target_link_libraries(srdf_parser ${CATKIN_LIBRARIES})
+add_library(srdf_parser SHARED src/srdf_parser.cpp)
+target_link_libraries(srdf_parser ${srdfdom_LIBRARIES} ${urdf_LIBRARIES})
 
-install(TARGETS basefoot_estimator trajectory_utils pose_getter srdf_parser
-  ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-  LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-  RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+# Installation
+install(
+  DIRECTORY include/${PROJECT_NAME}
+  DESTINATION ${CMAKE_INSTALL_PREFIX}/include
 )
 
-install(DIRECTORY include/${PROJECT_NAME}/
-        DESTINATION ${CATKIN_PACKAGE_INCLUDE_DESTINATION})
-
+install(
+  TARGETS basefoot_estimator trajectory_utils pose_getter srdf_parser
+  ARCHIVE DESTINATION ${CMAKE_INSTALL_PREFIX}/lib
+  LIBRARY DESTINATION ${CMAKE_INSTALL_PREFIX}/lib
+  RUNTIME DESTINATION ${CMAKE_INSTALL_PREFIX}/bin
+)

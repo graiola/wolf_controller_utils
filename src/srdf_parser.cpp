@@ -1,5 +1,6 @@
 #include "wolf_controller_utils/srdf_parser.h"
 #include "wolf_controller_utils/tools.h"
+#include "wolf_controller_utils/common.h"
 
 #include <urdf_parser/urdf_parser.h>
 #include <srdfdom/srdf_writer.h>
@@ -11,12 +12,50 @@ SRDFParser::SRDFParser()
 
 }
 
+#ifdef ROS
+#include <ros/ros.h>
 void SRDFParser::parseSRDF(const std::string& robot_namespace)
 {
-  nh_ = ros::NodeHandle(robot_namespace);
+  ros::NodeHandle nh(robot_namespace);
 
+  if(!nh.getParam("robot_description",urdf_))
+    PRINT_ERROR_NAMED(CLASS_NAME,"robot_description not available in the ros param server");
+
+  if(!nh.getParam("robot_description_semantic",srdf_))
+    PRINT_ERROR_NAMED(CLASS_NAME,"robot_description_semantic not available in the ros param server");
+
+  parseSRDF(urdf_,srdf_);
+}
+#endif
+
+#ifdef ROS2
+#include <rclcpp/rclcpp.hpp>
+void SRDFParser::parseSRDF(const std::string& robot_namespace)
+{
+  auto node = rclcpp::Node::make_shared(robot_namespace);
+
+  std::string urdf_, srdf_;
+
+  if (!node->get_parameter("robot_description", urdf_))
+  {
+    RCLCPP_ERROR(node->get_logger(), "robot_description not available in the ROS parameter server");
+    return;
+  }
+
+  if (!node->get_parameter("robot_description_semantic", srdf_))
+  {
+    RCLCPP_ERROR(node->get_logger(), "robot_description_semantic not available in the ROS parameter server");
+    return;
+  }
+
+  parseSRDF(urdf_, srdf_);
+}
+#endif
+
+void SRDFParser::parseSRDF(const std::string& urdf, const std::string& srdf)
+{
   srdf::Model srdf_model;
-  if(parseSRDF(srdf_model))
+  if(createSRDFModel(srdf_model))
   {
     robot_model_name_ = srdf_model.getName();
 
@@ -153,25 +192,23 @@ const std::string& SRDFParser::getRobotModelName()
   return robot_model_name_;
 }
 
-bool SRDFParser::parseSRDF(srdf::Model& srdf_model)
+bool SRDFParser::createSRDFModel(srdf::Model& srdf_model)
 {
-  if(!nh_.getParam("robot_description",urdf_))
+  if(urdf_.empty())
   {
-    ROS_ERROR_NAMED(CLASS_NAME,"robot_description not available in the ros param server");
+    PRINT_ERROR_NAMED(CLASS_NAME,"urdf string is empty!");
     return false;
   }
-  if(!nh_.getParam("robot_description_semantic",srdf_))
+  if(srdf_.empty())
   {
-    ROS_ERROR_NAMED(CLASS_NAME,"robot_description_semantic not available in the ros param server");
+    PRINT_ERROR_NAMED(CLASS_NAME,"srdf string is empty!");
     return false;
   }
-
   urdf::ModelInterfaceSharedPtr u = urdf::parseURDF(urdf_);
   if(!srdf_model.initString(*u,srdf_))
   {
-    ROS_ERROR_NAMED(CLASS_NAME,"Can not initialize SRDF model from XML string!");
+    PRINT_ERROR_NAMED(CLASS_NAME,"Can not initialize SRDF model from XML string!");
     return false;
   }
-
   return true;
 }
