@@ -128,6 +128,20 @@ inline Eigen::Affine3d poseToAffine3d(const geometry_msgs::Pose &in)
   return out;
 }
 
+inline Eigen::Vector6d twistToVector6d(const geometry_msgs::Twist &in)
+{
+  Eigen::Vector6d out;
+
+  out(0) = in.linear.x;
+  out(1) = in.linear.y;
+  out(2) = in.linear.z;
+  out(3) = in.angular.x;
+  out(4) = in.angular.y;
+  out(5) = in.angular.z;
+
+  return out;
+}
+
 inline geometry_msgs::TransformStamped poseStampedToTransformStamped(
   const geometry_msgs::PoseStamped & in,
   const std::string& parent_frame,
