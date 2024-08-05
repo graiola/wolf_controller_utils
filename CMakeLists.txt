@@ -4,20 +4,21 @@ project(wolf_controller_utils)
 # ROS
 find_package(catkin QUIET)
 find_package(ament_cmake QUIET)
-if(${catkin_FOUND})
-    set(ROS_DEFINITION "ROS")
+if(catkin_FOUND)
     catkin_package(
         INCLUDE_DIRS include
         LIBRARIES basefoot_estimator trajectory_utils pose_getter srdf_parser
         CATKIN_DEPENDS srdfdom urdf
+        CFG_EXTRAS ros-extras.cmake
     )
     message(STATUS "Add ROS definition")
-elseif(${ament_cmake_FOUND})
-    set(ROS_DEFINITION "ROS2")
+    add_compile_definitions(ROS)
+elseif(ament_cmake_FOUND)
     ament_export_include_directories(include)
     ament_export_libraries(basefoot_estimator trajectory_utils pose_getter srdf_parser)
-    ament_package()
+    ament_package(CONFIG_EXTRAS cmake/ros2-extras.cmake)
     message(STATUS "Add ROS2 definition")
+    add_compile_definitions(ROS2)
 endif()
 
 find_package(PkgConfig)
@@ -40,8 +41,6 @@ include_directories(
     ${urdf_INCLUDE_DIRS}
 )
 
-add_compile_definitions(${ROS_DEFINITION})
-
 # Define libraries and link the helper target to propagate the definitions
 add_library(basefoot_estimator SHARED src/basefoot_estimator.cpp)
 
@@ -49,7 +48,6 @@ add_library(trajectory_utils SHARED src/trajectory/trajectory.cpp)
 
 add_library(pose_getter SHARED include/${PROJECT_NAME}/pose_getter.h src/pose_getter.cpp)
 target_link_libraries(pose_getter ${geometry_msgs_LIBRARIES} ${tf2_LIBRARIES} ${tf2_ros_LIBRARIES} ${tf2_eigen_LIBRARIES})
-target_compile_definitions(pose_getter PUBLIC ${ROS_DEFINITION})
 
 add_library(srdf_parser SHARED src/srdf_parser.cpp)
 target_link_libraries(srdf_parser ${srdfdom_LIBRARIES} ${urdf_LIBRARIES})
