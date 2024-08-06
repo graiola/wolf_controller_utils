@@ -193,18 +193,7 @@ inline void vector3dToVector3(const Eigen::Vector3d& vector3d, Vector3& vector3)
     vector3.z = vector3d.z();
 }
 
-inline void covarianceToEigen(const std::array<double, 36>& in, Eigen::Matrix<double, 6, 6>& out) {
-    for(unsigned int i = 0; i < 6; i++)
-        for(unsigned int j = 0; j < 6; j++)
-            out(i, j) = in[i * 6 + j];
-}
-
-inline void eigenToCovariance(const Eigen::Matrix<double, 6, 6>& in, std::array<double, 36>& out) {
-    for(unsigned int i = 0; i < 6; i++)
-        for(unsigned int j = 0; j < 6; j++)
-            out[i * 6 + j] = in(i, j);
-}
-
+#ifdef ROS
 inline void covarianceToEigen(const boost::array<double, 36>& in, Eigen::Matrix<double, 6, 6>& out) {
     for(unsigned int i = 0; i < 6; i++)
         for(unsigned int j = 0; j < 6; j++)
@@ -216,6 +205,19 @@ inline void eigenToCovariance(const Eigen::Matrix<double, 6, 6>& in, boost::arra
         for(unsigned int j = 0; j < 6; j++)
             out[i * 6 + j] = in(i, j);
 }
+#elif defined(ROS2)
+inline void covarianceToEigen(const std::array<double, 36>& in, Eigen::Matrix<double, 6, 6>& out) {
+    for(unsigned int i = 0; i < 6; i++)
+        for(unsigned int j = 0; j < 6; j++)
+            out(i, j) = in[i * 6 + j];
+}
+
+inline void eigenToCovariance(const Eigen::Matrix<double, 6, 6>& in, std::array<double, 36>& out) {
+    for(unsigned int i = 0; i < 6; i++)
+        for(unsigned int j = 0; j < 6; j++)
+            out[i * 6 + j] = in(i, j);
+}
+#endif
 
 }; // namespace wolf_controller_utils
 

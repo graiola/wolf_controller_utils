@@ -46,7 +46,7 @@ add_library(basefoot_estimator SHARED src/basefoot_estimator.cpp)
 
 add_library(trajectory_utils SHARED src/trajectory/trajectory.cpp)
 
-add_library(pose_getter SHARED include/${PROJECT_NAME}/pose_getter.h src/pose_getter.cpp)
+add_library(pose_getter SHARED src/pose_getter.cpp)
 target_link_libraries(pose_getter ${geometry_msgs_LIBRARIES} ${tf2_LIBRARIES} ${tf2_ros_LIBRARIES} ${tf2_eigen_LIBRARIES})
 
 add_library(srdf_parser SHARED src/srdf_parser.cpp)
