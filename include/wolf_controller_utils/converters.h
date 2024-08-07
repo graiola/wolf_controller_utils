@@ -32,9 +32,13 @@
     #include <geometry_msgs/TransformStamped.h>
     #include <nav_msgs/Odometry.h>
     #include <ros/time.h>
-    using namespace geometry_msgs;
-    using namespace nav_msgs;
-    using ros::Time;
+    typedef geometry_msgs::Pose PoseRosMsg;
+    typedef geometry_msgs::Twist TwistRosMsg;
+    typedef geometry_msgs::PoseStamped PoseStampedRosMsg;
+    typedef geometry_msgs::TransformStamped TransformStampedRosMsg;
+    typedef geometry_msgs::Vector3 Vector3RosMsg;
+    typedef nav_msgs::Odometry OdometryRosMsg;
+    typedef ros::Time TimeRos;
 #elif defined(ROS2)
     #include <geometry_msgs/msg/pose.hpp>
     #include <geometry_msgs/msg/twist.hpp>
@@ -42,17 +46,20 @@
     #include <geometry_msgs/msg/transform_stamped.hpp>
     #include <nav_msgs/msg/odometry.hpp>
     #include <rclcpp/rclcpp.hpp>
-    using namespace geometry_msgs::msg;
-    using namespace nav_msgs::msg;
-    using rclcpp::Time;
-    using rclcpp::Clock;
+    typedef geometry_msgs::msg::Pose PoseRosMsg;
+    typedef geometry_msgs::msg::Twist TwistRosMsg;
+    typedef geometry_msgs::msg::PoseStamped PoseStampedRosMsg;
+    typedef geometry_msgs::msg::TransformStamped TransformStampedRosMsg;
+    typedef geometry_msgs::msg::Vector3 Vector3RosMsg;
+    typedef nav_msgs::msg::Odometry OdometryRosMsg;
+    typedef rclcpp::Time TimeRos;
 #endif
 
 #include <wolf_controller_utils/common.h>
 
 namespace wolf_controller_utils {
 
-inline Eigen::Affine3d odometryToAffine3d(const Odometry &odom) {
+inline Eigen::Affine3d odometryToAffine3d(const OdometryRosMsg &odom) {
     Eigen::Affine3d transform = Eigen::Affine3d::Identity();
     transform.translation() << odom.pose.pose.position.x, odom.pose.pose.position.y, odom.pose.pose.position.z;
     Eigen::Quaterniond quat(odom.pose.pose.orientation.w, odom.pose.pose.orientation.x, odom.pose.pose.orientation.y, odom.pose.pose.orientation.z);
@@ -60,13 +67,9 @@ inline Eigen::Affine3d odometryToAffine3d(const Odometry &odom) {
     return transform;
 }
 
-inline Odometry affine3dToOdometry(const Eigen::Affine3d& affine, const std::string& frame_id, const std::string& child_frame_id) {
-    Odometry odometry_msg;
-#ifdef ROS
-    odometry_msg.header.stamp = Time::now();
-#elif defined(ROS2)
-    odometry_msg.header.stamp = Clock().now();
-#endif
+inline OdometryRosMsg affine3dToOdometry(const Eigen::Affine3d& affine, const std::string& frame_id, const std::string& child_frame_id) {
+    OdometryRosMsg odometry_msg;
+    odometry_msg.header.stamp = TimeRos::now();
     odometry_msg.header.frame_id = frame_id;
     odometry_msg.child_frame_id = child_frame_id;
     odometry_msg.pose.pose.position.x = affine.translation().x();
@@ -80,8 +83,8 @@ inline Odometry affine3dToOdometry(const Eigen::Affine3d& affine, const std::str
     return odometry_msg;
 }
 
-inline TransformStamped affine3dToTransformStamped(const Eigen::Affine3d& affine, const std::string& parent_frame, const std::string& child_frame, const Time& stamp) {
-    TransformStamped transform_stamped;
+inline TransformStampedRosMsg affine3dToTransformStamped(const Eigen::Affine3d& affine, const std::string& parent_frame, const std::string& child_frame, const TimeRos& stamp) {
+    TransformStampedRosMsg transform_stamped;
     transform_stamped.header.stamp = stamp;
     transform_stamped.header.frame_id = parent_frame;
     transform_stamped.child_frame_id = child_frame;
@@ -96,13 +99,13 @@ inline TransformStamped affine3dToTransformStamped(const Eigen::Affine3d& affine
     return transform_stamped;
 }
 
-inline Eigen::Affine3d transformStampedToAffine3d(const TransformStamped& transformStamped) {
+inline Eigen::Affine3d transformStampedToAffine3d(const TransformStampedRosMsg& transformStamped) {
     Eigen::Translation3d translation(transformStamped.transform.translation.x, transformStamped.transform.translation.y, transformStamped.transform.translation.z);
     Eigen::Quaterniond rotation(transformStamped.transform.rotation.w, transformStamped.transform.rotation.x, transformStamped.transform.rotation.y, transformStamped.transform.rotation.z);
     return translation * rotation;
 }
 
-inline Eigen::Affine3d poseToAffine3d(const Pose &in) {
+inline Eigen::Affine3d poseToAffine3d(const PoseRosMsg &in) {
     Eigen::Affine3d out;
     out.translation() << in.position.x, in.position.y, in.position.z;
     Eigen::Quaterniond q(in.orientation.w, in.orientation.x, in.orientation.y, in.orientation.z);
@@ -110,14 +113,14 @@ inline Eigen::Affine3d poseToAffine3d(const Pose &in) {
     return out;
 }
 
-inline Eigen::Matrix<double, 6, 1> twistToVector6d(const Twist &in) {
+inline Eigen::Matrix<double, 6, 1> twistToVector6d(const TwistRosMsg &in) {
     Eigen::Matrix<double, 6, 1> out;
     out << in.linear.x, in.linear.y, in.linear.z, in.angular.x, in.angular.y, in.angular.z;
     return out;
 }
 
-inline TransformStamped poseStampedToTransformStamped(const PoseStamped &in, const std::string& parent_frame, const std::string& child_frame) {
-    TransformStamped transformStamped;
+inline TransformStampedRosMsg poseStampedToTransformStamped(const PoseStampedRosMsg &in, const std::string& parent_frame, const std::string& child_frame) {
+    TransformStampedRosMsg transformStamped;
     transformStamped.header.stamp = in.header.stamp;
     transformStamped.header.frame_id = parent_frame;
     transformStamped.child_frame_id = child_frame;
@@ -144,7 +147,7 @@ inline void affine3dToVisualizationPose(const Eigen::Affine3d& Frame, MarkerType
 }
 
 template <class MarkerType>
-inline void poseToVisualizationPose(const Pose& Frame, MarkerType& Marker) {
+inline void poseToVisualizationPose(const PoseRosMsg& Frame, MarkerType& Marker) {
     Marker.pose.position.x = Frame.position.x;
     Marker.pose.position.y = Frame.position.y;
     Marker.pose.position.z = Frame.position.z;
@@ -154,7 +157,7 @@ inline void poseToVisualizationPose(const Pose& Frame, MarkerType& Marker) {
     Marker.pose.orientation.w = Frame.orientation.w;
 }
 
-inline void affine3dToPose(const Eigen::Affine3d& affine3d, Pose& pose) {
+inline void affine3dToPose(const Eigen::Affine3d& affine3d, PoseRosMsg& pose) {
     pose.position.x = affine3d.translation().x();
     pose.position.y = affine3d.translation().y();
     pose.position.z = affine3d.translation().z();
@@ -165,20 +168,20 @@ inline void affine3dToPose(const Eigen::Affine3d& affine3d, Pose& pose) {
     pose.orientation.w = quat.w();
 }
 
-inline void vector3dToPosePosition(const Eigen::Vector3d& vector3d, Pose& pose) {
+inline void vector3dToPosePosition(const Eigen::Vector3d& vector3d, PoseRosMsg& pose) {
     pose.position.x = vector3d.x();
     pose.position.y = vector3d.y();
     pose.position.z = vector3d.z();
 }
 
-inline void quaterniondToPoseOrientation(const Eigen::Quaterniond& quaterniond, Pose& pose) {
+inline void quaterniondToPoseOrientation(const Eigen::Quaterniond& quaterniond, PoseRosMsg& pose) {
     pose.orientation.x = quaterniond.x();
     pose.orientation.y = quaterniond.y();
     pose.orientation.z = quaterniond.z();
     pose.orientation.w = quaterniond.w();
 }
 
-inline void vector6dToTwist(const Eigen::Matrix<double, 6, 1>& vector6d, Twist& twist) {
+inline void vector6dToTwist(const Eigen::Matrix<double, 6, 1>& vector6d, TwistRosMsg& twist) {
     twist.linear.x  = vector6d(0);
     twist.linear.y  = vector6d(1);
     twist.linear.z  = vector6d(2);
@@ -187,7 +190,7 @@ inline void vector6dToTwist(const Eigen::Matrix<double, 6, 1>& vector6d, Twist& 
     twist.angular.z = vector6d(5);
 }
 
-inline void vector3dToVector3(const Eigen::Vector3d& vector3d, Vector3& vector3) {
+inline void vector3dToVector3(const Eigen::Vector3d& vector3d, Vector3RosMsg& vector3) {
     vector3.x = vector3d.x();
     vector3.y = vector3d.y();
     vector3.z = vector3d.z();
