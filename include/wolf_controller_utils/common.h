@@ -35,6 +35,16 @@ typedef Matrix<double,4,3> Matrix4x3d;
 typedef Matrix<double,3,6> Matrix3x6d;
 }
 
+// Some static stuff
+namespace wolf_controller_utils
+{
+  static std::vector<std::string> _cartesian_names = {"x","y","z","roll","pitch","yaw"}; // This is our standard cartesian dofs order
+  static std::vector<std::string> _xyz = {"x","y","z"};
+  static std::vector<std::string> _rpy = {"roll","pitch","yaw"};
+  static std::vector<std::string> _joints_prefix = {"haa","hfe","kfe"};
+  static std::vector<std::string> _legs_prefix = {"lf","lh","rf","rh"};
+}
+
 // Definitions
 #define GRAVITY 9.81
 #define FLOATING_BASE_DOFS 6
