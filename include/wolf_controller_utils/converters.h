@@ -67,9 +67,19 @@ inline Eigen::Affine3d odometryToAffine3d(const OdometryRosMsg &odom) {
     return transform;
 }
 
-inline OdometryRosMsg affine3dToOdometry(const Eigen::Affine3d& affine, const std::string& frame_id, const std::string& child_frame_id) {
+inline OdometryRosMsg affine3dToOdometry(const Eigen::Affine3d& affine,
+                                         const std::string& frame_id,
+                                         const std::string& child_frame_id
+#ifdef ROS2
+                                         , const rclcpp::Clock::SharedPtr& clock  // Pass clock for ROS2
+#endif
+) {
     OdometryRosMsg odometry_msg;
-    odometry_msg.header.stamp = TimeRos::now();
+#ifdef ROS
+    odometry_msg.header.stamp = TimeRos::now();  // Use TimeRos::now() in ROS1
+#elif defined(ROS2)
+    odometry_msg.header.stamp = clock->now();  // Use clock->now() in ROS2
+#endif
     odometry_msg.header.frame_id = frame_id;
     odometry_msg.child_frame_id = child_frame_id;
     odometry_msg.pose.pose.position.x = affine.translation().x();
@@ -83,9 +93,21 @@ inline OdometryRosMsg affine3dToOdometry(const Eigen::Affine3d& affine, const st
     return odometry_msg;
 }
 
-inline TransformStampedRosMsg affine3dToTransformStamped(const Eigen::Affine3d& affine, const std::string& parent_frame, const std::string& child_frame, const TimeRos& stamp) {
+
+inline TransformStampedRosMsg affine3dToTransformStamped(const Eigen::Affine3d& affine,
+                                                         const std::string& parent_frame,
+                                                         const std::string& child_frame,
+                                                         const TimeRos& stamp
+#ifdef ROS2
+                                                         , const rclcpp::Clock::SharedPtr& clock  // For ROS2, pass the clock if needed
+#endif
+) {
     TransformStampedRosMsg transform_stamped;
-    transform_stamped.header.stamp = stamp;
+#ifdef ROS
+    transform_stamped.header.stamp = stamp;  // Use stamp directly in ROS1
+#elif defined(ROS2)
+    transform_stamped.header.stamp = clock->now();  // Use clock->now() for ROS2 if needed
+#endif
     transform_stamped.header.frame_id = parent_frame;
     transform_stamped.child_frame_id = child_frame;
     transform_stamped.transform.translation.x = affine.translation().x();
@@ -98,6 +120,7 @@ inline TransformStampedRosMsg affine3dToTransformStamped(const Eigen::Affine3d& 
     transform_stamped.transform.rotation.w = q.w();
     return transform_stamped;
 }
+
 
 inline Eigen::Affine3d transformStampedToAffine3d(const TransformStampedRosMsg& transformStamped) {
     Eigen::Translation3d translation(transformStamped.transform.translation.x, transformStamped.transform.translation.y, transformStamped.transform.translation.z);

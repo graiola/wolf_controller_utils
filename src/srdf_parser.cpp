@@ -7,7 +7,8 @@
 
 using namespace wolf_controller_utils;
 
-SRDFParser::SRDFParser()
+SRDFParser::SRDFParser(const std::string& description_param_name)
+  :description_param_name_(description_param_name)
 {
 
 }
@@ -20,23 +21,20 @@ void SRDFParser::parseSRDF(const std::string& robot_namespace)
 
   std::string urdf, srdf;
 
-  if(!nh.getParam("robot_description",urdf))
+  if(!nh.getParam(description_param_name_,urdf))
   {
-    PRINT_ERROR_NAMED(CLASS_NAME,"robot_description not available in the ROS parameter server");
-    return;
+    PRINT_WARN_NAMED(CLASS_NAME,"robot_description not available in the ROS parameter server");
   }
 
-  if(!nh.getParam("robot_description_semantic",srdf))
+  if(!nh.getParam(description_param_name_+"_semantic",srdf))
   {
-    PRINT_ERROR_NAMED(CLASS_NAME,"robot_description_semantic not available in the ROS parameter server");
-    return;
+    PRINT_WARN_NAMED(CLASS_NAME,"robot_description_semantic not available in the ROS parameter server");
   }
 
   parseSRDF(urdf,srdf);
 }
-#endif
 
-#ifdef ROS2
+#elif defined(ROS2)
 #include <rclcpp/rclcpp.hpp>
 void SRDFParser::parseSRDF(const std::string& robot_namespace)
 {
@@ -44,16 +42,14 @@ void SRDFParser::parseSRDF(const std::string& robot_namespace)
 
   std::string urdf, srdf;
 
-  if (!nh->get_parameter("robot_description", urdf))
+  if (!nh->get_parameter(description_param_name_, urdf))
   {
-    PRINT_ERROR_NAMED(CLASS_NAME, "robot_description not available in the ROS parameter server");
-    return;
+    PRINT_WARN_NAMED(CLASS_NAME, "robot_description not available in the ROS parameter server");
   }
 
-  if (!nh->get_parameter("robot_description_semantic", srdf))
+  if (!nh->get_parameter(description_param_name_+"_semantic", srdf))
   {
-    PRINT_ERROR_NAMED(CLASS_NAME, "robot_description_semantic not available in the ROS parameter server");
-    return;
+    PRINT_WARN_NAMED(CLASS_NAME, "robot_description_semantic not available in the ROS parameter server");
   }
 
   parseSRDF(urdf, srdf);
@@ -64,17 +60,19 @@ void SRDFParser::parseSRDF(const std::string& urdf, const std::string& srdf)
 {
   if(urdf.empty())
   {
-    PRINT_ERROR_NAMED(CLASS_NAME,"urdf string is empty!");
+    PRINT_WARN_NAMED(CLASS_NAME,"urdf string is empty!");
     return;
   }
+  else
+    urdf_ = urdf;
+
   if(srdf.empty())
   {
-    PRINT_ERROR_NAMED(CLASS_NAME,"srdf string is empty!");
+    PRINT_WARN_NAMED(CLASS_NAME,"srdf string is empty!");
     return;
   }
-
-  urdf_ = urdf;
-  srdf_ = srdf;
+  else
+    srdf_ = srdf;
 
   srdf::Model srdf_model;
   if(createSRDFModel(srdf_model))

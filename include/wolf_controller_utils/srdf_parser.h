@@ -36,7 +36,7 @@ public:
 
     const std::string CLASS_NAME = "SRDFParser";
 
-    SRDFParser();
+    SRDFParser(const std::string& description_param_name = "robot_description");
 
     void parseSRDF(const std::string& urdf, const std::string& srdf);
 
@@ -59,6 +59,8 @@ public:
     const std::string& getURDFString();
 
 protected:
+
+    std::string description_param_name_;
 
     std::vector<std::string> foot_names_; // foot tip names
     std::vector<std::string> hip_names_;
