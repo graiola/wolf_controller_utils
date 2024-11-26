@@ -52,6 +52,9 @@ elseif(ament_cmake_FOUND)
     add_executable(ros2_param_setter_test tests/ros2_param_setter_test.cpp)
     target_link_libraries(ros2_param_setter_test ${rclcpp_LIBRARIES} ${rcl_interfaces_LIBRARIES})
 
+    add_executable(wolf_param_getter_test tests/wolf_param_getter_test.cpp)
+    target_link_libraries(wolf_param_getter_test ${rclcpp_LIBRARIES} ${rcl_interfaces_LIBRARIES})
+
 endif()
 
 
