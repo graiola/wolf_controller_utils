@@ -45,15 +45,16 @@ elseif(ament_cmake_FOUND)
 
     find_package(rclcpp REQUIRED)
     find_package(rcl_interfaces REQUIRED)
+    find_package(libstatistics_collector REQUIRED)
     # Simple test for ros2 param getter
     add_executable(ros2_param_getter_test tests/ros2_param_getter_test.cpp)
-    target_link_libraries(ros2_param_getter_test ${rclcpp_LIBRARIES} ${rcl_interfaces_LIBRARIES})
+    target_link_libraries(ros2_param_getter_test ${rclcpp_LIBRARIES} ${rcl_interfaces_LIBRARIES} ${libstatistics_collector_LIBRARIES})
     # Simple test for ros2 param setter
     add_executable(ros2_param_setter_test tests/ros2_param_setter_test.cpp)
-    target_link_libraries(ros2_param_setter_test ${rclcpp_LIBRARIES} ${rcl_interfaces_LIBRARIES})
+    target_link_libraries(ros2_param_setter_test ${rclcpp_LIBRARIES} ${rcl_interfaces_LIBRARIES} ${libstatistics_collector_LIBRARIES})
 
     add_executable(wolf_param_getter_test tests/wolf_param_getter_test.cpp)
-    target_link_libraries(wolf_param_getter_test ${rclcpp_LIBRARIES} ${rcl_interfaces_LIBRARIES})
+    target_link_libraries(wolf_param_getter_test ${rclcpp_LIBRARIES} ${rcl_interfaces_LIBRARIES} ${libstatistics_collector_LIBRARIES})
 
 endif()
 
