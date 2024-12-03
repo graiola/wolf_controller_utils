@@ -34,6 +34,9 @@ if(catkin_FOUND)
     message(STATUS "Add ROS definition")
     add_compile_definitions(ROS)
     set(SRDFDOM_LIB ${srdfdom_LIBRARIES})
+    find_package(roscpp REQUIRED)
+    set(ROS_LIBS ${roscpp_LIBRARIES})
+    set(ROS_HEADERS ${roscpp_INCLUDE_DIRS})
 elseif(ament_cmake_FOUND)
     ament_export_dependencies(srdfdom urdf)
     ament_export_include_directories(include)
@@ -47,6 +50,10 @@ elseif(ament_cmake_FOUND)
     find_package(rclcpp REQUIRED)
     find_package(rcl_interfaces REQUIRED)
     find_package(libstatistics_collector REQUIRED)
+
+    set(ROS_LIBS ${rclcpp_LIBRARIES})
+    set(ROS_HEADERS ${rclcpp_INCLUDE_DIRS})
+
     # Simple test for ros2 param getter
     add_executable(ros2_param_getter_test tests/ros2_param_getter_test.cpp)
     target_link_libraries(ros2_param_getter_test ${rcl_LIBRARIES} ${rclcpp_LIBRARIES} ${rcl_interfaces_LIBRARIES} ${libstatistics_collector_LIBRARIES})
@@ -74,7 +81,8 @@ add_library(pose_getter SHARED src/pose_getter.cpp)
 target_link_libraries(pose_getter ${geometry_msgs_LIBRARIES} ${tf2_LIBRARIES} ${tf2_ros_LIBRARIES} ${tf2_eigen_LIBRARIES})
 
 add_library(srdf_parser SHARED src/srdf_parser.cpp)
-target_link_libraries(srdf_parser ${urdf_LIBRARIES} ${SRDFDOM_LIB})
+target_link_libraries(srdf_parser ${urdf_LIBRARIES} ${SRDFDOM_LIB} ${ROS_LIBS})
+target_include_directories(srdf_parser PUBLIC ${ROS_HEADERS})
 
 # Installation
 install(
