@@ -96,3 +96,8 @@ install(
   LIBRARY DESTINATION ${CMAKE_INSTALL_PREFIX}/lib
   RUNTIME DESTINATION ${CMAKE_INSTALL_PREFIX}/bin
 )
+
+# Note that it is installed in share
+install(PROGRAMS scripts/replace_yaml_placeholders.py
+        DESTINATION ${CMAKE_INSTALL_PREFIX}/share/${PROJECT_NAME})
+
