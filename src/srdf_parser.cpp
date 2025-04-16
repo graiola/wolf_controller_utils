@@ -125,6 +125,12 @@ void SRDFParser::parseSRDF(const std::string& urdf, const std::string& srdf)
         else
           throw std::runtime_error("There can be only one imu defined in the SRDF file!");
       }
+      // Parse the contact names from the SRDF file
+      if(srdf_model.getGroups()[i].name_.find("contacts") != std::string::npos)
+      {
+        for(unsigned int j=0;j<links.size();j++)
+          contact_names_.push_back(links[j]);
+      }
     }
     // Parse the joint names from the standup groupstate
     auto group_states = srdf_model.getGroupStates();
