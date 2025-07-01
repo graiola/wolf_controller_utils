@@ -1,0 +1,96 @@
+#!/usr/bin/env python3
+import rclpy
+from rclpy.node import Node
+
+from sensor_msgs.msg import Imu
+from geometry_msgs.msg import TransformStamped
+
+import math
+import tf2_ros
+
+
+class BaseLinkStabilizer(Node):
+    def __init__(self):
+        super().__init__('base_stabilizer')
+
+        # Parameters
+        self.declare_parameter('robot_name', '')
+        self.declare_parameter('imu_topic', 'imu/data')
+        self.declare_parameter('base_frame', 'base_link')
+        self.declare_parameter('stabilized_frame', 'base_link_stabilized')
+
+        # Load parameters
+        robot_name = self.get_parameter('robot_name').get_parameter_value().string_value
+        imu_topic_raw = self.get_parameter('imu_topic').get_parameter_value().string_value
+        base_frame_raw = self.get_parameter('base_frame').get_parameter_value().string_value
+        stabilized_frame_raw = self.get_parameter('stabilized_frame').get_parameter_value().string_value
+
+        def prefix(name):
+            return f'{robot_name}/{name}' if robot_name else name
+
+        self.imu_topic = imu_topic_raw
+        self.base_frame = prefix(base_frame_raw)
+        self.stabilized_frame = prefix(stabilized_frame_raw)
+
+        # Interfaces
+        self.tf_broadcaster = tf2_ros.TransformBroadcaster(self)
+
+        # Subscribers
+        self.last_orientation = None
+        self.imu_sub = self.create_subscription(Imu, self.imu_topic, self.imu_callback, 10)
+
+        # Timer for publishing TF
+        self.timer = self.create_timer(0.02, self.timer_callback)
+
+        self.get_logger().info(f"Publishing {self.stabilized_frame} as child of {self.base_frame}")
+
+    def imu_callback(self, msg):
+        q = msg.orientation
+        self.last_orientation = [q.x, q.y, q.z, q.w]
+
+    def timer_callback(self):
+        if self.last_orientation is None:
+            return
+
+        # Extract yaw only
+        q = self.last_orientation
+        yaw = self.quaternion_to_yaw(q)
+        yaw_q = self.yaw_to_quaternion(yaw)
+
+        # Create a transform: from base_frame to stabilized_frame
+        t = TransformStamped()
+        t.header.stamp = self.get_clock().now().to_msg()
+        t.header.frame_id = self.base_frame
+        t.child_frame_id = self.stabilized_frame
+        t.transform.translation.x = 0.0
+        t.transform.translation.y = 0.0
+        t.transform.translation.z = 0.0
+        t.transform.rotation.x = yaw_q[0]
+        t.transform.rotation.y = yaw_q[1]
+        t.transform.rotation.z = yaw_q[2]
+        t.transform.rotation.w = yaw_q[3]
+
+        self.tf_broadcaster.sendTransform(t)
+
+    def quaternion_to_yaw(self, q):
+        # ROS format: [x, y, z, w]
+        siny_cosp = 2.0 * (q[3] * q[2] + q[0] * q[1])
+        cosy_cosp = 1.0 - 2.0 * (q[1] * q[1] + q[2] * q[2])
+        return math.atan2(siny_cosp, cosy_cosp)
+
+    def yaw_to_quaternion(self, yaw):
+        cy = math.cos(yaw * 0.5)
+        sy = math.sin(yaw * 0.5)
+        return [0.0, 0.0, sy, cy]  # x, y, z, w
+
+
+def main(args=None):
+    rclpy.init(args=args)
+    node = BaseLinkStabilizer()
+    rclpy.spin(node)
+    node.destroy_node()
+    rclpy.shutdown()
+
+
+if __name__ == '__main__':
+    main()

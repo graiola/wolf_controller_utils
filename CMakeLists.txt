@@ -31,6 +31,7 @@ if(catkin_FOUND)
         CATKIN_DEPENDS srdfdom urdf
         CFG_EXTRAS ros-extras.cmake
     )
+    set(ROS_VERSION "ros")
     message(STATUS "Add ROS definition")
     add_compile_definitions(ROS)
     set(SRDFDOM_LIB ${srdfdom_LIBRARIES})
@@ -42,6 +43,7 @@ elseif(ament_cmake_FOUND)
     ament_export_include_directories(include)
     ament_export_libraries(basefoot_estimator trajectory_utils pose_getter srdf_parser)
     ament_package(CONFIG_EXTRAS cmake/ros2-extras.cmake)
+    set(ROS_VERSION "ros2")
     message(STATUS "Add ROS2 definition")
     add_compile_definitions(ROS2)
     set(SRDFDOM_LIB "srdfdom::srdfdom")
@@ -100,4 +102,7 @@ install(
 # Note that it is installed in share
 install(PROGRAMS scripts/replace_yaml_placeholders.py
         DESTINATION ${CMAKE_INSTALL_PREFIX}/share/${PROJECT_NAME})
+
+install(PROGRAMS scripts/${ROS_VERSION}/base_stabilizer
+  DESTINATION ${CMAKE_INSTALL_PREFIX}/lib/${PROJECT_NAME})
 
