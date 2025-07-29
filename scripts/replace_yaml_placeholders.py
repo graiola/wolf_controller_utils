@@ -5,46 +5,51 @@ import sys
 import re
 
 def try_parse_value(value):
-    """Try to convert a string value to int, float, or bool."""
-    if value.lower() in ("true", "false"):
-        return value.lower() == "true"
-    try:
-        if '.' in value:
-            return float(value)
-        return int(value)
-    except ValueError:
-        return value  # Leave as string if parsing fails
+    """Convert a string to int, float, or bool if possible."""
+    if isinstance(value, str):
+        if value.lower() in ("true", "false"):
+            return value.lower() == "true"
+        try:
+            return float(value) if '.' in value else int(value)
+        except ValueError:
+            return value
+    return value
 
 def replace_placeholders(data, replacements):
+    """Recursively replace placeholders in both dict keys and values."""
     if isinstance(data, dict):
-        return {k: replace_placeholders(v, replacements) for k, v in data.items()}
+        new_dict = {}
+        for key, val in data.items():
+            new_key = replace_placeholders(key, replacements) if isinstance(key, str) else key
+            new_val = replace_placeholders(val, replacements)
+            new_dict[new_key] = new_val
+        return new_dict
     elif isinstance(data, list):
         return [replace_placeholders(item, replacements) for item in data]
     elif isinstance(data, str):
-        for key, value in replacements.items():
-            data = re.sub(rf'\$\{{{key}\}}', str(value), data)
-        parsed = try_parse_value(data)
-        return parsed
+        result = data
+        for k, v in replacements.items():
+            result = re.sub(rf'\$\{{{k}\}}', str(v), result)
+        return try_parse_value(result)
     else:
         return data
 
 def main():
     if len(sys.argv) < 4:
-        print("Usage: replace_yaml_placeholders.py <input_yaml> <output_yaml> <key=value> [<key=value> ...]")
+        print("Usage: replace_yaml_placeholders.py <input_yaml> <output_yaml> KEY=VALUE ...")
         sys.exit(1)
 
-    input_file = sys.argv[1]
-    output_file = sys.argv[2]
-    raw_replacements = dict(arg.split("=", 1) for arg in sys.argv[3:])
-    replacements = {k: try_parse_value(v) for k, v in raw_replacements.items()}
+    infile = sys.argv[1]
+    outfile = sys.argv[2]
+    repl = {k: try_parse_value(v) for k, v in [arg.split("=",1) for arg in sys.argv[3:]]}
 
-    with open(input_file, 'r') as f:
-        yaml_data = yaml.safe_load(f)
+    with open(infile) as f:
+        data = yaml.safe_load(f)
 
-    new_yaml = replace_placeholders(yaml_data, replacements)
+    new = replace_placeholders(data, repl)
 
-    with open(output_file, 'w') as f:
-        yaml.safe_dump(new_yaml, f)
+    with open(outfile, "w") as f:
+        yaml.safe_dump(new, f, sort_keys=False)
 
 if __name__ == "__main__":
     main()
