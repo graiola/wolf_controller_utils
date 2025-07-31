@@ -46,11 +46,10 @@ inline std::vector<std::string> sortByLegPrefix(const std::vector<std::string>& 
 
 inline void fixTFprefix(std::string& tf_prefix)
 {
-  // Check and fix tf_prefix
-  if(tf_prefix == "/")
-    tf_prefix = "";
-  else if (!tf_prefix.empty())
-    tf_prefix = tf_prefix + "/";
+    if (tf_prefix == "/" || tf_prefix.empty())
+        tf_prefix = "";
+    else if (tf_prefix.back() != '/')
+        tf_prefix += "/";
 }
 
 class Ramp
