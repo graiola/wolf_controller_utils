@@ -1,22 +1,81 @@
 #include "wolf_controller_utils/srdf_parser.h"
 #include "wolf_controller_utils/tools.h"
+#include "wolf_controller_utils/common.h"
 
 #include <urdf_parser/urdf_parser.h>
 #include <srdfdom/srdf_writer.h>
 
 using namespace wolf_controller_utils;
 
-SRDFParser::SRDFParser()
+SRDFParser::SRDFParser(const std::string& description_param_name)
+  :description_param_name_(description_param_name)
 {
 
 }
 
+#ifdef ROS
+#include <ros/ros.h>
 void SRDFParser::parseSRDF(const std::string& robot_namespace)
 {
-  nh_ = ros::NodeHandle(robot_namespace);
+  ros::NodeHandle nh(robot_namespace);
+
+  std::string urdf, srdf;
+
+  if(!nh.getParam(description_param_name_,urdf))
+  {
+    PRINT_WARN_NAMED(CLASS_NAME,"robot_description not available in the ROS parameter server");
+  }
+
+  if(!nh.getParam(description_param_name_+"_semantic",srdf))
+  {
+    PRINT_WARN_NAMED(CLASS_NAME,"robot_description_semantic not available in the ROS parameter server");
+  }
+
+  parseSRDF(urdf,srdf);
+}
+
+#elif defined(ROS2)
+#include <rclcpp/rclcpp.hpp>
+void SRDFParser::parseSRDF(const std::string& robot_namespace)
+{
+  auto nh = rclcpp::Node::make_shared(robot_namespace);
+
+  std::string urdf, srdf;
+
+  if (!nh->get_parameter(description_param_name_, urdf))
+  {
+    PRINT_WARN_NAMED(CLASS_NAME, "robot_description not available in the ROS parameter server");
+  }
+
+  if (!nh->get_parameter(description_param_name_+"_semantic", srdf))
+  {
+    PRINT_WARN_NAMED(CLASS_NAME, "robot_description_semantic not available in the ROS parameter server");
+  }
+
+  parseSRDF(urdf, srdf);
+}
+#endif
+
+void SRDFParser::parseSRDF(const std::string& urdf, const std::string& srdf)
+{
+  if(urdf.empty())
+  {
+    PRINT_WARN_NAMED(CLASS_NAME,"urdf string is empty!");
+    return;
+  }
+  else
+    urdf_ = urdf;
+
+  if(srdf.empty())
+  {
+    PRINT_WARN_NAMED(CLASS_NAME,"srdf string is empty!");
+    return;
+  }
+  else
+    srdf_ = srdf;
 
   srdf::Model srdf_model;
-  if(parseSRDF(srdf_model))
+  if(createSRDFModel(srdf_model))
   {
     robot_model_name_ = srdf_model.getName();
 
@@ -65,6 +124,12 @@ void SRDFParser::parseSRDF(const std::string& robot_namespace)
           imu_name_ = links[0];
         else
           throw std::runtime_error("There can be only one imu defined in the SRDF file!");
+      }
+      // Parse the contact names from the SRDF file
+      if(srdf_model.getGroups()[i].name_.find("contacts") != std::string::npos)
+      {
+        for(unsigned int j=0;j<links.size();j++)
+          contact_names_.push_back(links[j]);
       }
     }
     // Parse the joint names from the standup groupstate
@@ -153,25 +218,13 @@ const std::string& SRDFParser::getRobotModelName()
   return robot_model_name_;
 }
 
-bool SRDFParser::parseSRDF(srdf::Model& srdf_model)
+bool SRDFParser::createSRDFModel(srdf::Model& srdf_model)
 {
-  if(!nh_.getParam("robot_description",urdf_))
-  {
-    ROS_ERROR_NAMED(CLASS_NAME,"robot_description not available in the ros param server");
-    return false;
-  }
-  if(!nh_.getParam("robot_description_semantic",srdf_))
-  {
-    ROS_ERROR_NAMED(CLASS_NAME,"robot_description_semantic not available in the ros param server");
-    return false;
-  }
-
   urdf::ModelInterfaceSharedPtr u = urdf::parseURDF(urdf_);
   if(!srdf_model.initString(*u,srdf_))
   {
-    ROS_ERROR_NAMED(CLASS_NAME,"Can not initialize SRDF model from XML string!");
+    PRINT_ERROR_NAMED(CLASS_NAME,"Can not initialize SRDF model from XML string!");
     return false;
   }
-
   return true;
 }

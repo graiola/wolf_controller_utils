@@ -20,10 +20,8 @@
 #ifndef WOLF_CONTROLLER_UTILS_SRDF_PARSER_H
 #define WOLF_CONTROLLER_UTILS_SRDF_PARSER_H
 
-#include <ros/ros.h>
 #include <urdf/model.h>
 #include <srdfdom/model.h>
-
 
 namespace wolf_controller_utils
 {
@@ -38,7 +36,9 @@ public:
 
     const std::string CLASS_NAME = "SRDFParser";
 
-    SRDFParser();
+    SRDFParser(const std::string& description_param_name = "robot_description");
+
+    void parseSRDF(const std::string& urdf, const std::string& srdf);
 
     void parseSRDF(const std::string& robot_namespace);
 
@@ -60,7 +60,8 @@ public:
 
 protected:
 
-    ros::NodeHandle nh_;
+    std::string description_param_name_;
+
     std::vector<std::string> foot_names_; // foot tip names
     std::vector<std::string> hip_names_;
     std::vector<std::string> leg_names_;
@@ -79,7 +80,7 @@ protected:
     std::string urdf_;
     std::string srdf_;
 
-    bool parseSRDF(srdf::Model& srdf_model);
+    bool createSRDFModel(srdf::Model& srdf_model);
     std::vector<std::string> parseGroupNames(const std::string& group_name);
 };
 

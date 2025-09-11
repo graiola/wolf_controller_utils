@@ -1,55 +1,108 @@
-cmake_minimum_required(VERSION 3.0.2)
+cmake_minimum_required(VERSION 3.5)
 project(wolf_controller_utils)
 
 find_package(PkgConfig)
 pkg_check_modules(EIGEN eigen3)
-find_package(catkin REQUIRED COMPONENTS
-    roscpp
-    geometry_msgs
-    tf2
-    tf2_ros
-    tf2_eigen
-    srdfdom
-    urdf
-)
+find_package(geometry_msgs REQUIRED)
+find_package(tf2 REQUIRED)
+find_package(tf2_ros REQUIRED)
+find_package(tf2_eigen REQUIRED)
+find_package(srdfdom REQUIRED)
+find_package(urdf REQUIRED)
 
 include_directories(
     include
     ${EIGEN_INCLUDE_DIRS}
-    ${catkin_INCLUDE_DIRS}
+    ${geometry_msgs_INCLUDE_DIRS}
+    ${tf2_INCLUDE_DIRS}
+    ${tf2_ros_INCLUDE_DIRS}
+    ${tf2_eigen_INCLUDE_DIRS}
+    ${srdfdom_INCLUDE_DIRS}
+    ${urdf_INCLUDE_DIRS}
 )
 
-catkin_package(
-    INCLUDE_DIRS
-        include
-    LIBRARIES
-        basefoot_estimator
-        trajectory_utils
-        pose_getter
-        srdf_parser
-    CATKIN_DEPENDS
-        srdfdom
-        urdf
+# ROS
+find_package(catkin QUIET)
+find_package(ament_cmake QUIET)
+if(catkin_FOUND)
+    catkin_package(
+        INCLUDE_DIRS include
+        LIBRARIES basefoot_estimator trajectory_utils pose_getter srdf_parser
+        CATKIN_DEPENDS srdfdom urdf
+        CFG_EXTRAS ros-extras.cmake
     )
+    set(ROS_VERSION "ros")
+    message(STATUS "Add ROS definition")
+    add_compile_definitions(ROS)
+    set(SRDFDOM_LIB ${srdfdom_LIBRARIES})
+    find_package(roscpp REQUIRED)
+    set(ROS_LIBS ${roscpp_LIBRARIES})
+    set(ROS_HEADERS ${roscpp_INCLUDE_DIRS})
+elseif(ament_cmake_FOUND)
+    ament_export_dependencies(srdfdom urdf)
+    ament_export_include_directories(include)
+    ament_export_libraries(basefoot_estimator trajectory_utils pose_getter srdf_parser)
+    ament_package(CONFIG_EXTRAS cmake/ros2-extras.cmake)
+    set(ROS_VERSION "ros2")
+    message(STATUS "Add ROS2 definition")
+    add_compile_definitions(ROS2)
+    set(SRDFDOM_LIB "srdfdom::srdfdom")
 
-add_library(basefoot_estimator src/basefoot_estimator.cpp)
-target_link_libraries(basefoot_estimator ${CATKIN_LIBRARIES})
+    find_package(rcl REQUIRED)
+    find_package(rclcpp REQUIRED)
+    find_package(rcl_interfaces REQUIRED)
+    find_package(libstatistics_collector REQUIRED)
 
-add_library(trajectory_utils src/trajectory/trajectory.cpp)
-target_link_libraries(trajectory_utils ${CATKIN_LIBRARIES})
+    set(ROS_LIBS ${rclcpp_LIBRARIES})
+    set(ROS_HEADERS ${rclcpp_INCLUDE_DIRS})
 
-add_library(pose_getter src/pose_getter.cpp)
-target_link_libraries(pose_getter ${CATKIN_LIBRARIES})
+    # Simple test for ros2 param getter
+    add_executable(ros2_param_getter_test tests/ros2_param_getter_test.cpp)
+    target_link_libraries(ros2_param_getter_test ${rcl_LIBRARIES} ${rclcpp_LIBRARIES} ${rcl_interfaces_LIBRARIES} ${libstatistics_collector_LIBRARIES})
+    target_include_directories(ros2_param_getter_test PUBLIC ${rcl_INCLUDE_DIRS} ${rclcpp_INCLUDE_DIRS} ${rcl_interfaces_INCLUDE_DIRS} ${libstatistics_collector_INCLUDE_DIRS})
 
-add_library(srdf_parser src/srdf_parser.cpp)
-target_link_libraries(srdf_parser ${CATKIN_LIBRARIES})
+    # Simple test for ros2 param setter
+    add_executable(ros2_param_setter_test tests/ros2_param_setter_test.cpp)
+    target_link_libraries(ros2_param_setter_test ${rcl_LIBRARIES} ${rclcpp_LIBRARIES} ${rcl_interfaces_LIBRARIES} ${libstatistics_collector_LIBRARIES})
+    target_include_directories(ros2_param_setter_test PUBLIC ${rcl_INCLUDE_DIRS} ${rclcpp_INCLUDE_DIRS} ${rcl_interfaces_INCLUDE_DIRS} ${libstatistics_collector_INCLUDE_DIRS})
 
-install(TARGETS basefoot_estimator trajectory_utils pose_getter srdf_parser
-  ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-  LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-  RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+    add_executable(wolf_param_getter_test tests/wolf_param_getter_test.cpp)
+    target_link_libraries(wolf_param_getter_test ${rcl_LIBRARIES} ${rclcpp_LIBRARIES} ${rcl_interfaces_LIBRARIES} ${libstatistics_collector_LIBRARIES})
+    target_include_directories(wolf_param_getter_test PUBLIC ${rcl_INCLUDE_DIRS} ${rclcpp_INCLUDE_DIRS} ${rcl_interfaces_INCLUDE_DIRS} ${libstatistics_collector_INCLUDE_DIRS})
+
+endif()
+
+
+
+# Define libraries and link the helper target to propagate the definitions
+add_library(basefoot_estimator SHARED src/basefoot_estimator.cpp)
+
+add_library(trajectory_utils SHARED src/trajectory/trajectory.cpp)
+
+add_library(pose_getter SHARED src/pose_getter.cpp)
+target_link_libraries(pose_getter ${geometry_msgs_LIBRARIES} ${tf2_LIBRARIES} ${tf2_ros_LIBRARIES} ${tf2_eigen_LIBRARIES})
+
+add_library(srdf_parser SHARED src/srdf_parser.cpp)
+target_link_libraries(srdf_parser ${urdf_LIBRARIES} ${SRDFDOM_LIB} ${ROS_LIBS})
+target_include_directories(srdf_parser PUBLIC ${ROS_HEADERS})
+
+# Installation
+install(
+  DIRECTORY include/${PROJECT_NAME}
+  DESTINATION ${CMAKE_INSTALL_PREFIX}/include
 )
 
-install(DIRECTORY include/${PROJECT_NAME}/
-        DESTINATION ${CATKIN_PACKAGE_INCLUDE_DESTINATION})
+install(
+  TARGETS basefoot_estimator trajectory_utils pose_getter srdf_parser
+  ARCHIVE DESTINATION ${CMAKE_INSTALL_PREFIX}/lib
+  LIBRARY DESTINATION ${CMAKE_INSTALL_PREFIX}/lib
+  RUNTIME DESTINATION ${CMAKE_INSTALL_PREFIX}/bin
+)
+
+# Note that it is installed in share
+install(PROGRAMS scripts/replace_yaml_placeholders.py
+        DESTINATION ${CMAKE_INSTALL_PREFIX}/share/${PROJECT_NAME})
+
+install(PROGRAMS scripts/${ROS_VERSION}/base_stabilizer
+  DESTINATION ${CMAKE_INSTALL_PREFIX}/lib/${PROJECT_NAME})
 
