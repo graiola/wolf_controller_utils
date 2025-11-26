@@ -1,68 +1,87 @@
 #!/usr/bin/env python
 import rospy
-import tf
-import tf2_ros
+import math
+
 from sensor_msgs.msg import Imu
 from geometry_msgs.msg import TransformStamped
-import tf.transformations as tft
+import tf2_ros
 
-class BaseLinkStabilizer:
+
+class BaseLinkStabilizer(object):
     def __init__(self):
         rospy.init_node('base_stabilizer')
 
-        # Load parameters
-        self.imu_topic = rospy.get_param('~imu_topic', '/imu/data')
-        self.base_frame = rospy.get_param('~base_frame', 'base_link')
-        self.parent_frame = rospy.get_param('~parent_frame', 'odom')
-        self.stabilized_frame = rospy.get_param('~stabilized_frame', 'base_link_stabilized')
+        # Parameters (same names & defaults as ROS2)
+        robot_name = rospy.get_param('~robot_name', '')
+        imu_topic_raw = rospy.get_param('~imu_topic', 'imu/data')
+        base_frame_raw = rospy.get_param('~base_frame', 'base_link')
+        stabilized_frame_raw = rospy.get_param('~stabilized_frame', 'base_link_stabilized')
 
-        # TF interfaces
-        self.tf_listener = tf.TransformListener()
+        def prefix(name):
+            return '{}/{}'.format(robot_name, name) if robot_name else name
+
+        self.imu_topic = imu_topic_raw
+        self.base_frame = prefix(base_frame_raw)
+        self.stabilized_frame = prefix(stabilized_frame_raw)
+
+        # TF broadcaster
         self.tf_broadcaster = tf2_ros.TransformBroadcaster()
 
-        # Subscribe to IMU
+        # State
         self.last_orientation = None
-        rospy.Subscriber(self.imu_topic, Imu, self.imu_callback)
 
-        # Publish at fixed rate
+        # Subscriber
+        rospy.Subscriber(self.imu_topic, Imu, self.imu_callback, queue_size=1)
+
+        # Timer @ 50 Hz (0.02s)
         rospy.Timer(rospy.Duration(0.02), self.timer_callback)
+
+        rospy.loginfo("Publishing %s as child of %s",
+                      self.stabilized_frame, self.base_frame)
 
     def imu_callback(self, msg):
         q = msg.orientation
         self.last_orientation = [q.x, q.y, q.z, q.w]
 
+    # Same math as in ROS2
+    def quaternion_to_yaw(self, q):
+        # q = [x, y, z, w]
+        siny_cosp = 2.0 * (q[3] * q[2] + q[0] * q[1])
+        cosy_cosp = 1.0 - 2.0 * (q[1] * q[1] + q[2] * q[2])
+        return math.atan2(siny_cosp, cosy_cosp)
+
+    def yaw_to_quaternion(self, yaw):
+        cy = math.cos(yaw * 0.5)
+        sy = math.sin(yaw * 0.5)
+        return [0.0, 0.0, sy, cy]  # x, y, z, w
+
     def timer_callback(self, event):
         if self.last_orientation is None:
             return
 
-        try:
-            (trans, rot) = self.tf_listener.lookupTransform(self.parent_frame, self.base_frame, rospy.Time(0))
-        except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
-            return
+        # Extract yaw only from IMU orientation
+        yaw = self.quaternion_to_yaw(self.last_orientation)
+        yaw_q = self.yaw_to_quaternion(yaw)
 
-        # Extract yaw from IMU quaternion
-        _, _, yaw = tft.euler_from_quaternion(self.last_orientation)
-        yaw_only_q = tft.quaternion_from_euler(0.0, 0.0, yaw)
-
-        # Create and publish stabilized transform
+        # Transform: base_frame -> stabilized_frame
         t = TransformStamped()
         t.header.stamp = rospy.Time.now()
-        t.header.frame_id = self.parent_frame
+        t.header.frame_id = self.base_frame
         t.child_frame_id = self.stabilized_frame
-        t.transform.translation.x = trans[0]
-        t.transform.translation.y = trans[1]
-        t.transform.translation.z = trans[2]
-        t.transform.rotation.x = yaw_only_q[0]
-        t.transform.rotation.y = yaw_only_q[1]
-        t.transform.rotation.z = yaw_only_q[2]
-        t.transform.rotation.w = yaw_only_q[3]
+        t.transform.translation.x = 0.0
+        t.transform.translation.y = 0.0
+        t.transform.translation.z = 0.0
+        t.transform.rotation.x = yaw_q[0]
+        t.transform.rotation.y = yaw_q[1]
+        t.transform.rotation.z = yaw_q[2]
+        t.transform.rotation.w = yaw_q[3]
 
         self.tf_broadcaster.sendTransform(t)
 
+
 if __name__ == '__main__':
     try:
-        BaseLinkStabilizer()
+        node = BaseLinkStabilizer()
         rospy.spin()
     except rospy.ROSInterruptException:
         pass
-
