@@ -23,6 +23,7 @@
 #define WOLF_CONTROLLER_UTILS_GEOMETRY_H
 
 #include <Eigen/Core>
+#include <Eigen/Geometry> 
 
 #include <wolf_controller_utils/common.h>
 
