@@ -46,6 +46,7 @@ namespace wolf_controller_utils
 }
 
 // Definitions
+#define WORLD_FRAME_NAME "world"
 #define GRAVITY 9.81
 #define FLOATING_BASE_DOFS 6
 #define EPS 0.00001
