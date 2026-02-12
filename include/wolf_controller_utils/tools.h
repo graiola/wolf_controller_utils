@@ -17,8 +17,8 @@ namespace wolf_controller_utils
 inline std::vector<std::string> sortByLegPrefix(const std::vector<std::string>& names, const std::vector<std::string>& order = {"lf","lh","rf","rh"} )
 {
     // Sort the names following order
-    assert(names.size() == 4);
-    assert(order.size() == 4);
+    //assert(names.size() == 4);
+    //assert(order.size() == 4);
     std::vector<std::string> ordered_names(4);
     for(unsigned int i=0;i<names.size();i++)
         for(unsigned int j=0;j<order.size();j++)

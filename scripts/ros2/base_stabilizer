@@ -1,92 +1,224 @@
 #!/usr/bin/env python3
+import math
+
 import rclpy
 from rclpy.node import Node
 
 from sensor_msgs.msg import Imu
 from geometry_msgs.msg import TransformStamped
-
-import math
 import tf2_ros
 
 
-class BaseLinkStabilizer(Node):
+def _is_finite(x: float) -> bool:
+    return not (math.isinf(x) or math.isnan(x))
+
+
+def _quat_is_valid(q):
+    return q is not None and len(q) == 4 and all(_is_finite(v) for v in q)
+
+
+def _quat_norm2(q):
+    return q[0]*q[0] + q[1]*q[1] + q[2]*q[2] + q[3]*q[3]
+
+
+def _quat_normalize(q):
+    n2 = _quat_norm2(q)
+    if (not _is_finite(n2)) or n2 < 1e-12:
+        return None
+    n = math.sqrt(n2)
+    inv = 1.0 / n
+    return [q[0]*inv, q[1]*inv, q[2]*inv, q[3]*inv]
+
+
+def quaternion_to_yaw(q):
+    # q = [x,y,z,w]
+    siny_cosp = 2.0 * (q[3]*q[2] + q[0]*q[1])
+    cosy_cosp = 1.0 - 2.0 * (q[1]*q[1] + q[2]*q[2])
+    return math.atan2(siny_cosp, cosy_cosp)
+
+
+def yaw_to_quaternion(yaw):
+    cy = math.cos(yaw * 0.5)
+    sy = math.sin(yaw * 0.5)
+    return [0.0, 0.0, sy, cy]
+
+
+def _time_to_ns(tmsg) -> int:
+    return int(tmsg.sec) * 1_000_000_000 + int(tmsg.nanosec)
+
+
+def _ns_to_time_msg(ns: int):
+    # returns builtin_interfaces/msg/Time
+    sec = ns // 1_000_000_000
+    nanosec = ns % 1_000_000_000
+    from builtin_interfaces.msg import Time
+    return Time(sec=int(sec), nanosec=int(nanosec))
+
+
+class BaseFramesPublisher(Node):
     def __init__(self):
         super().__init__('base_stabilizer')
 
-        # Parameters
+        # params
         self.declare_parameter('robot_name', '')
         self.declare_parameter('imu_topic', 'imu/data')
         self.declare_parameter('base_frame', 'base_link')
         self.declare_parameter('stabilized_frame', 'base_link_stabilized')
+        self.declare_parameter('inclined_frame', 'base_inclined')
 
-        # Load parameters
-        robot_name = self.get_parameter('robot_name').get_parameter_value().string_value
-        imu_topic_raw = self.get_parameter('imu_topic').get_parameter_value().string_value
-        base_frame_raw = self.get_parameter('base_frame').get_parameter_value().string_value
-        stabilized_frame_raw = self.get_parameter('stabilized_frame').get_parameter_value().string_value
+        self.declare_parameter('publish_footprint', False)
+        self.declare_parameter('footprint_frame', 'base_footprint')
 
-        def prefix(name):
+        # Timing behavior
+        self.declare_parameter('use_imu_stamp', False)   # consiglio: False per evitare extrapolation
+        self.declare_parameter('publish_rate', 100.0)
+        self.declare_parameter('min_quat_norm', 1e-6)
+
+        # If use_imu_stamp=True: make stamps strictly increasing for TF
+        self.declare_parameter('force_monotonic_stamp', True)
+        self.declare_parameter('min_dt_ns', 1_000_000)  # 1ms
+
+        robot_name = self.get_parameter('robot_name').value
+        self.imu_topic = self.get_parameter('imu_topic').value
+
+        def prefix(name: str) -> str:
             return f'{robot_name}/{name}' if robot_name else name
 
-        self.imu_topic = imu_topic_raw
-        self.base_frame = prefix(base_frame_raw)
-        self.stabilized_frame = prefix(stabilized_frame_raw)
+        self.base_frame = prefix(self.get_parameter('base_frame').value)
+        self.stabilized_frame = prefix(self.get_parameter('stabilized_frame').value)
+        self.inclined_frame = prefix(self.get_parameter('inclined_frame').value)
 
-        # Interfaces
+        self.publish_footprint = bool(self.get_parameter('publish_footprint').value)
+        self.footprint_frame = prefix(self.get_parameter('footprint_frame').value)
+
+        self.use_imu_stamp = bool(self.get_parameter('use_imu_stamp').value)
+        self.publish_rate = float(self.get_parameter('publish_rate').value)
+        self.min_quat_norm = float(self.get_parameter('min_quat_norm').value)
+
+        self.force_monotonic_stamp = bool(self.get_parameter('force_monotonic_stamp').value)
+        self.min_dt_ns = int(self.get_parameter('min_dt_ns').value)
+
+        # state
+        self.last_q = None
+        self.last_stamp_msg = None
+        self._last_pub_stamp_ns = None  # last TF stamp published (ns)
+
+        # TF
         self.tf_broadcaster = tf2_ros.TransformBroadcaster(self)
 
-        # Subscribers
-        self.last_orientation = None
-        self.imu_sub = self.create_subscription(Imu, self.imu_topic, self.imu_callback, 10)
+        # subs/timer
+        self.create_subscription(Imu, self.imu_topic, self.imu_callback, 50)
+        period = 1.0 / max(self.publish_rate, 1.0)
+        self.create_timer(period, self.timer_cb)
 
-        # Timer for publishing TF
-        self.timer = self.create_timer(0.02, self.timer_callback)
+        self.get_logger().info(f"IMU: {self.imu_topic}")
+        self.get_logger().info(f"Publishing stabilized: {self.base_frame} -> {self.stabilized_frame} (yaw-only)")
+        self.get_logger().info(f"Publishing inclined:   {self.base_frame} -> {self.inclined_frame} (full RPY)")
+        if self.publish_footprint:
+            self.get_logger().info(f"Publishing footprint:  {self.stabilized_frame} -> {self.footprint_frame} (identity)")
 
-        self.get_logger().info(f"Publishing {self.stabilized_frame} as child of {self.base_frame}")
+        self.get_logger().info(f"use_imu_stamp={self.use_imu_stamp}, publish_rate={self.publish_rate} Hz, "
+                               f"force_monotonic_stamp={self.force_monotonic_stamp}")
 
-    def imu_callback(self, msg):
+    def imu_callback(self, msg: Imu):
         q = msg.orientation
-        self.last_orientation = [q.x, q.y, q.z, q.w]
+        q_list = [q.x, q.y, q.z, q.w]
 
-    def timer_callback(self):
-        if self.last_orientation is None:
+        if not _quat_is_valid(q_list):
+            self.get_logger().warn("IMU quaternion contains NaN/Inf, skipping.")
             return
 
-        # Extract yaw only
-        q = self.last_orientation
-        yaw = self.quaternion_to_yaw(q)
-        yaw_q = self.yaw_to_quaternion(yaw)
+        n2 = _quat_norm2(q_list)
+        if (not _is_finite(n2)) or n2 < (self.min_quat_norm * self.min_quat_norm):
+            self.get_logger().warn(f"IMU quaternion norm too small/invalid (norm2={n2}), skipping.")
+            return
 
-        # Create a transform: from base_frame to stabilized_frame
+        qn = _quat_normalize(q_list)
+        if qn is None:
+            self.get_logger().warn("Failed to normalize IMU quaternion, skipping.")
+            return
+
+        self.last_q = qn
+        # keep last IMU stamp around (even if we won't use it)
+        self.last_stamp_msg = msg.header.stamp
+
+    def _make_tf(self, stamp_msg, parent, child, tx, ty, tz, q):
         t = TransformStamped()
-        t.header.stamp = self.get_clock().now().to_msg()
-        t.header.frame_id = self.base_frame
-        t.child_frame_id = self.stabilized_frame
-        t.transform.translation.x = 0.0
-        t.transform.translation.y = 0.0
-        t.transform.translation.z = 0.0
-        t.transform.rotation.x = yaw_q[0]
-        t.transform.rotation.y = yaw_q[1]
-        t.transform.rotation.z = yaw_q[2]
-        t.transform.rotation.w = yaw_q[3]
+        t.header.stamp = stamp_msg
+        t.header.frame_id = parent
+        t.child_frame_id = child
+        t.transform.translation.x = float(tx)
+        t.transform.translation.y = float(ty)
+        t.transform.translation.z = float(tz)
+        t.transform.rotation.x = float(q[0])
+        t.transform.rotation.y = float(q[1])
+        t.transform.rotation.z = float(q[2])
+        t.transform.rotation.w = float(q[3])
+        return t
 
-        self.tf_broadcaster.sendTransform(t)
+    def _compute_stamp(self):
+        """
+        Return a stamp (builtin_interfaces/msg/Time) that is:
+        - not in the future (relative to node clock) when use_imu_stamp=False
+        - strictly increasing if force_monotonic_stamp=True
+        """
+        if self.use_imu_stamp and self.last_stamp_msg is not None:
+            stamp_msg = self.last_stamp_msg
+            stamp_ns = _time_to_ns(stamp_msg)
+        else:
+            stamp_msg = self.get_clock().now().to_msg()
+            stamp_ns = _time_to_ns(stamp_msg)
 
-    def quaternion_to_yaw(self, q):
-        # ROS format: [x, y, z, w]
-        siny_cosp = 2.0 * (q[3] * q[2] + q[0] * q[1])
-        cosy_cosp = 1.0 - 2.0 * (q[1] * q[1] + q[2] * q[2])
-        return math.atan2(siny_cosp, cosy_cosp)
+        if self.force_monotonic_stamp:
+            if self._last_pub_stamp_ns is None:
+                # first publish
+                self._last_pub_stamp_ns = stamp_ns
+            else:
+                # ensure strictly increasing to avoid TF_REPEATED_DATA
+                min_next = self._last_pub_stamp_ns + self.min_dt_ns
+                if stamp_ns < min_next:
+                    stamp_ns = min_next
+                    stamp_msg = _ns_to_time_msg(stamp_ns)
+                self._last_pub_stamp_ns = stamp_ns
+        else:
+            # Still avoid exact repeats (cheap guard)
+            if self._last_pub_stamp_ns is not None and stamp_ns == self._last_pub_stamp_ns:
+                stamp_ns += self.min_dt_ns
+                stamp_msg = _ns_to_time_msg(stamp_ns)
+                self._last_pub_stamp_ns = stamp_ns
+            else:
+                self._last_pub_stamp_ns = stamp_ns
 
-    def yaw_to_quaternion(self, yaw):
-        cy = math.cos(yaw * 0.5)
-        sy = math.sin(yaw * 0.5)
-        return [0.0, 0.0, sy, cy]  # x, y, z, w
+        return stamp_msg
+
+    def timer_cb(self):
+        if self.last_q is None:
+            return
+
+        stamp = self._compute_stamp()
+
+        # base -> stabilized (yaw-only)
+        yaw = quaternion_to_yaw(self.last_q)
+        q_yaw = yaw_to_quaternion(yaw)
+        tf_stab = self._make_tf(stamp, self.base_frame, self.stabilized_frame, 0.0, 0.0, 0.0, q_yaw)
+
+        # base -> inclined (full RPY)
+        tf_incl = self._make_tf(stamp, self.base_frame, self.inclined_frame, 0.0, 0.0, 0.0, self.last_q)
+
+        tfs = [tf_stab, tf_incl]
+
+        if self.publish_footprint:
+            tf_fp = self._make_tf(stamp, self.stabilized_frame, self.footprint_frame,
+                                  0.0, 0.0, 0.0, [0.0, 0.0, 0.0, 1.0])
+            tfs.append(tf_fp)
+
+        # One batch publish
+        self.tf_broadcaster.sendTransform(tfs)
 
 
 def main(args=None):
     rclpy.init(args=args)
-    node = BaseLinkStabilizer()
+    node = BaseFramesPublisher()
     rclpy.spin(node)
     node.destroy_node()
     rclpy.shutdown()
