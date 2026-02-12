@@ -1,23 +1,7 @@
 /*
- * Copyright (C) 2022 Gennaro Raiola
- * Author: Gennaro Raiola
- * email:  gennaro.raiola@gmail.com
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public License
- * along with this program. If not, see <http://www.gnu.org/licenses/>
- *
- * original code and license notice here: http://wiki.ros.org/explore_lite
-*/
+ * SPDX-License-Identifier: MIT
+ * Copyright (c) Gennaro Raiola
+ */
 
 #ifndef WOLF_CONTROLLER_TRAJECTORY_H
 #define WOLF_CONTROLLER_TRAJECTORY_H
@@ -57,21 +41,27 @@ public:
 
   Trajectory();
 
+  // Add a waypoint defined by absolute time and pose.
   void addWayPoint(double time, const Eigen::Affine3d& frame);
 
+  // Add a waypoint with an optional time offset (useful when appending trajectories).
   void addWayPoint(const WayPoint& waypoint, double time_offset = 0.0);
 
   void clear();
 
   const std::vector<WayPoint>& getWayPoints() const;
 
+  // Reserved hook for future precomputation.
   void compute();
 
+  // Evaluate pose and optional linear velocity/acceleration at `time`.
+  // If no waypoint exists, the identity pose and zero derivatives are returned.
   Eigen::Affine3d evaluate(double time, Eigen::Vector6d * const vel = nullptr, Eigen::Vector6d * const acc = nullptr);
 
+  // Return active segment index, or -1 before the first segment / when empty.
   int getCurrentSegmentId(double time) const;
 
-  bool isTrajectoryEnded(double time);
+  bool isTrajectoryEnded(double time) const;
 
 private:
 

@@ -1,23 +1,7 @@
 /*
- * Copyright (C) 2022 Gennaro Raiola
- * Author: Gennaro Raiola
- * email:  gennaro.raiola@gmail.com
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public License
- * along with this program. If not, see <http://www.gnu.org/licenses/>
- *
- * original code and license notice here: http://wiki.ros.org/explore_lite
-*/
+ * SPDX-License-Identifier: MIT
+ * Copyright (c) Gennaro Raiola
+ */
 
 #ifndef WOLF_CONTROLLER_BASEFOOT_ESTIMATOR_H
 #define WOLF_CONTROLLER_BASEFOOT_ESTIMATOR_H
@@ -36,11 +20,13 @@ class BasefootEstimator
 public:
     BasefootEstimator();
 
-    void setContacts(const std::vector<bool> &foot_contacts, std::vector<double> &foot_height);
+    // Update per-foot contact state and measured base-to-foot heights.
+    // Inputs must have same non-zero size; invalid inputs are ignored.
+    void setContacts(const std::vector<bool>& foot_contacts, const std::vector<double>& foot_height);
 
-    const Eigen::Isometry3d& getBasefootPoseInBase();
+    const Eigen::Isometry3d& getBasefootPoseInBase() const;
 
-    const Eigen::Isometry3d& getBasefootPoseInOdom();
+    const Eigen::Isometry3d& getBasefootPoseInOdom() const;
 
     void setBasePoseInOdom(const Eigen::Isometry3d& pose);
 

@@ -1,7 +1,21 @@
 #include <wolf_controller_utils/trajectory/trajectory.h>
 
+#include <algorithm>
+#include <cmath>
+
 using namespace wolf_controller_utils;
 using namespace trajectory;
+
+namespace
+{
+inline void zeroIfRequested(Eigen::Vector6d* out)
+{
+    if(out)
+    {
+        out->setZero();
+    }
+}
+} // namespace
 
 void fifthOrderPlanning(double x0, double dx0, double ddx0,
                         double goal, double start_time, double end_time,
@@ -89,8 +103,13 @@ const std::vector< Trajectory::WayPoint >& Trajectory::getWayPoints() const
     return frames_;
 }
 
-bool Trajectory::isTrajectoryEnded(double time)
+bool Trajectory::isTrajectoryEnded(double time) const
 {
+    if(frames_.empty())
+    {
+        return true;
+    }
+
     return time > frames_.back().time_;
 }
 
@@ -101,6 +120,13 @@ void Trajectory::sortFrames()
 
 Eigen::Affine3d Trajectory::evaluate(double time, Eigen::Vector6d * const vel, Eigen::Vector6d * const acc)
 {
+    if(frames_.empty())
+    {
+        zeroIfRequested(vel);
+        zeroIfRequested(acc);
+        return Eigen::Affine3d::Identity();
+    }
+
     /* Find relevant segment (first frame after time) */
     auto it = std::find_if(frames_.begin(),
                            frames_.end(),
@@ -108,16 +134,16 @@ Eigen::Affine3d Trajectory::evaluate(double time, Eigen::Vector6d * const vel, E
     
     if(it == frames_.begin()) // trajectory yet to start
     {
-        if(vel) vel->setZero();
-        if(acc) acc->setZero();
+        zeroIfRequested(vel);
+        zeroIfRequested(acc);
         return it->frame_;
     }
     
     if(it == frames_.end()) // no frames after time (traj is finished)
     {
-        if(vel) vel->setZero();
-        if(acc) acc->setZero();
-        return (--it)->frame_;
+        zeroIfRequested(vel);
+        zeroIfRequested(acc);
+        return frames_.back().frame_;
     }
     
     Eigen::Affine3d end = it->frame_;

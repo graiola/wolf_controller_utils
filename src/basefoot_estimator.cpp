@@ -11,13 +11,13 @@ BasefootEstimator::BasefootEstimator()
   basefoot_T_odom_.setIdentity();
 }
 
-void BasefootEstimator::setContacts(const std::vector<bool> &foot_contacts, std::vector<double> &foot_height)
+void BasefootEstimator::setContacts(const std::vector<bool>& foot_contacts, const std::vector<double>& foot_height)
 {
-  if(foot_height_.size() == foot_contacts_.size())
-  {
-    foot_contacts_ = foot_contacts;
-    foot_height_ = foot_height;
-  }
+  if(foot_contacts.empty() || foot_contacts.size() != foot_height.size())
+    return;
+
+  foot_contacts_ = foot_contacts;
+  foot_height_ = foot_height;
 }
 
 void BasefootEstimator::setBasePoseInOdom(const Eigen::Isometry3d& pose)
@@ -25,12 +25,12 @@ void BasefootEstimator::setBasePoseInOdom(const Eigen::Isometry3d& pose)
   odom_T_base_ = pose;
 }
 
-const Eigen::Isometry3d &BasefootEstimator::getBasefootPoseInBase()
+const Eigen::Isometry3d &BasefootEstimator::getBasefootPoseInBase() const
 {
   return base_T_basefoot_;
 }
 
-const Eigen::Isometry3d &BasefootEstimator::getBasefootPoseInOdom()
+const Eigen::Isometry3d &BasefootEstimator::getBasefootPoseInOdom() const
 {
   return odom_T_basefoot_;
 }
@@ -44,9 +44,9 @@ void BasefootEstimator::update()
   tmp_v_.setZero();
   tmp_R_.setIdentity();
 
-  double base_yaw   = std::atan2(odom_T_base_.linear()(1,0),odom_T_base_.linear()(0,0));
+  const double base_yaw = std::atan2(odom_T_base_.linear()(1,0), odom_T_base_.linear()(0,0));
 
-  // Create base_T_basefoot
+  // Build the "horizontal frame" aligned with odom yaw and map base into it.
   odom_R_hf_ = Eigen::AngleAxisd(base_yaw,Eigen::Vector3d::UnitZ());
   hf_R_base_ = odom_R_hf_.transpose() * odom_T_base_.linear();
   base_T_basefoot_.translation().x() = 0.0;
@@ -54,7 +54,7 @@ void BasefootEstimator::update()
   base_T_basefoot_.translation().z() = -estimateHeight();
   base_T_basefoot_.linear() = hf_R_base_.transpose();
 
-  // Create odom_T_basefoot
+  // Compose odom <-> basefoot transforms.
   tmp_v_ =  odom_T_base_.translation();
   tmp_v_(2) = tmp_v_(2) + base_T_basefoot_.translation().z();
 
@@ -70,6 +70,11 @@ void BasefootEstimator::update()
 double BasefootEstimator::estimateHeight()
 {
   // Estimate z using the foot heights
+  if(foot_contacts_.empty() || foot_contacts_.size() != foot_height_.size())
+  {
+    return 0.0;
+  }
+
   double estimated_z = 0.0;
   int feet_in_stance = 0;
   for(unsigned int i = 0; i<foot_contacts_.size(); i++)
@@ -80,6 +85,12 @@ double BasefootEstimator::estimateHeight()
       estimated_z += foot_height_[i];
     }
   }
+
+  if(feet_in_stance == 0)
+  {
+    return 0.0;
+  }
+
   estimated_z /= feet_in_stance;
   return estimated_z;
 }
