@@ -4,6 +4,14 @@ import yaml
 import sys
 import re
 
+
+def normalize_slashes(value):
+    """Collapse repeated forward slashes while preserving URL schemes."""
+    if not isinstance(value, str):
+        return value
+    return re.sub(r'(?<!:)/{2,}', '/', value)
+
+
 def try_parse_value(value):
     """Convert a string to int, float, or bool if possible."""
     if isinstance(value, str):
@@ -30,6 +38,7 @@ def replace_placeholders(data, replacements):
         result = data
         for k, v in replacements.items():
             result = re.sub(rf'\$\{{{k}\}}', str(v), result)
+        result = normalize_slashes(result)
         return try_parse_value(result)
     else:
         return data
