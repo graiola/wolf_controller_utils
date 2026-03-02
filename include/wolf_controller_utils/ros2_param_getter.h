@@ -6,6 +6,9 @@
 #include <memory>
 #include <chrono>
 #include <iostream>
+#include <cmath>
+#include <limits>
+#include <vector>
 
 namespace wolf_controller_utils
 {
@@ -150,6 +153,95 @@ inline bool get_bool_parameter_from_remote_node(
     const std::string &param_path, bool default_value = false, std::chrono::seconds timeout = std::chrono::seconds(WAIT_SEC))
 {
     return get_bool_parameter_from_remote_node(get_global_node(), param_path, default_value, timeout);
+}
+
+inline std::string normalize_namespace(std::string ns)
+{
+    while (!ns.empty() && ns.front() == '/')
+        ns.erase(ns.begin());
+    while (!ns.empty() && ns.back() == '/')
+        ns.pop_back();
+    return ns;
+}
+
+inline std::vector<std::string> build_remote_node_candidates(
+    const std::string &robot_name,
+    const std::string &node_name)
+{
+    const std::string ns = normalize_namespace(robot_name);
+    std::vector<std::string> nodes;
+    if (ns.empty())
+        nodes.push_back(node_name);
+    else
+        nodes.push_back(ns + "/" + node_name);
+
+    if (nodes.front() != node_name)
+        nodes.push_back(node_name);
+
+    return nodes;
+}
+
+inline double get_double_parameter_from_remote_nodes(
+    const std::vector<std::string> &node_candidates,
+    const std::string &parameter_name,
+    double default_value = 0.0,
+    std::chrono::seconds timeout = std::chrono::seconds(WAIT_SEC))
+{
+    for (const auto &node : node_candidates)
+    {
+        const double value = get_double_parameter_from_remote_node(
+            node + "/" + parameter_name,
+            std::numeric_limits<double>::quiet_NaN(),
+            timeout);
+        if (std::isfinite(value))
+            return value;
+    }
+    return default_value;
+}
+
+inline std::string get_string_parameter_from_remote_nodes(
+    const std::vector<std::string> &node_candidates,
+    const std::string &parameter_name,
+    const std::string &default_value = "",
+    std::chrono::seconds timeout = std::chrono::seconds(WAIT_SEC))
+{
+    static const std::string kMissing = "__wolf_param_missing__";
+    for (const auto &node : node_candidates)
+    {
+        const std::string value = get_string_parameter_from_remote_node(
+            node + "/" + parameter_name,
+            kMissing,
+            timeout);
+        if (value != kMissing)
+            return value;
+    }
+    return default_value;
+}
+
+inline double get_double_parameter_from_remote_controller_node(
+    const std::string &robot_name,
+    const std::string &parameter_name,
+    double default_value = 0.0,
+    std::chrono::seconds timeout = std::chrono::seconds(WAIT_SEC))
+{
+    return get_double_parameter_from_remote_nodes(
+        build_remote_node_candidates(robot_name, "wolf_controller"),
+        parameter_name,
+        default_value,
+        timeout);
+}
+
+inline std::string get_string_parameter_from_remote_controller_node(
+    const std::string &robot_name,
+    const std::string &parameter_name,
+    const std::string &default_value = "",
+    std::chrono::seconds timeout = std::chrono::seconds(WAIT_SEC))
+{
+    return get_string_parameter_from_remote_nodes(
+        build_remote_node_candidates(robot_name, "wolf_controller"),
+        parameter_name,
+        default_value,
+        timeout);
 }
 
 } // namespace wolf_controller_utils
