@@ -9,6 +9,7 @@
 #include <cmath>
 #include <limits>
 #include <vector>
+#include <wolf_controller_utils/namespace_utils.h>
 
 namespace wolf_controller_utils
 {
@@ -21,7 +22,13 @@ using GetParameters = rcl_interfaces::srv::GetParameters;
 // Utility to get a singleton node instance
 inline std::shared_ptr<rclcpp::Node> get_global_node()
 {
-    static auto global_node = rclcpp::Node::make_shared("ros2_param_getter");
+    static auto global_node = []() {
+        rclcpp::NodeOptions options;
+        options.start_parameter_services(false);
+        options.start_parameter_event_publisher(false);
+        options.enable_rosout(false);
+        return rclcpp::Node::make_shared("ros2_param_getter", options);
+    }();
     return global_node;
 }
 
@@ -36,15 +43,20 @@ T get_parameter_from_remote_node(
 {
     RCLCPP_INFO(node->get_logger(), "Fetching parameter: %s", param_path.c_str());
 
-    size_t pos = param_path.find('/');
-    if (pos == std::string::npos)
+    const size_t pos = param_path.find_last_of('/');
+    if (pos == std::string::npos || pos == 0 || pos + 1 >= param_path.size())
     {
-        RCLCPP_ERROR(node->get_logger(), "Invalid parameter path format: %s. Expected format: '/node_name/param_name'", param_path.c_str());
+        RCLCPP_ERROR(
+            node->get_logger(),
+            "Invalid parameter path format: %s. Expected format: '/node_name/param_name'",
+            param_path.c_str());
         return default_value;
     }
 
     std::string remote_node_name = param_path.substr(0, pos);
     std::string param_name = param_path.substr(pos + 1);
+    if (!remote_node_name.empty() && remote_node_name.front() != '/')
+      remote_node_name = "/" + remote_node_name;
 
     auto callback_group = node->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
     auto client = node->create_client<GetParameters>(remote_node_name + "/get_parameters", rmw_qos_profile_services_default, callback_group);
@@ -155,15 +167,6 @@ inline bool get_bool_parameter_from_remote_node(
     return get_bool_parameter_from_remote_node(get_global_node(), param_path, default_value, timeout);
 }
 
-inline std::string normalize_namespace(std::string ns)
-{
-    while (!ns.empty() && ns.front() == '/')
-        ns.erase(ns.begin());
-    while (!ns.empty() && ns.back() == '/')
-        ns.pop_back();
-    return ns;
-}
-
 inline std::vector<std::string> build_remote_node_candidates(
     const std::string &robot_name,
     const std::string &node_name)
@@ -171,12 +174,15 @@ inline std::vector<std::string> build_remote_node_candidates(
     const std::string ns = normalize_namespace(robot_name);
     std::vector<std::string> nodes;
     if (ns.empty())
-        nodes.push_back(node_name);
+    {
+        nodes.push_back("/" + normalize_namespace(node_name));
+    }
     else
-        nodes.push_back(ns + "/" + node_name);
-
-    if (nodes.front() != node_name)
-        nodes.push_back(node_name);
+    {
+        // In multi-robot setups, avoid fallback to a global node to prevent repeated
+        // slow service timeouts when only the namespaced controller exists.
+        nodes.push_back("/" + ns + "/" + normalize_namespace(node_name));
+    }
 
     return nodes;
 }
