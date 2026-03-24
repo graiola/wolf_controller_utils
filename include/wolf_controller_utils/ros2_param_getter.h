@@ -8,6 +8,7 @@
 #include <iostream>
 #include <cmath>
 #include <limits>
+#include <algorithm>
 #include <vector>
 #include <wolf_controller_utils/namespace_utils.h>
 
@@ -18,6 +19,54 @@ namespace wolf_controller_utils
 #define RETRY_ATTEMPTS 3
 
 using GetParameters = rcl_interfaces::srv::GetParameters;
+
+struct LocalControllerParamNodeContext
+{
+    std::weak_ptr<rclcpp::node_interfaces::NodeParametersInterface> parameters;
+    std::string fully_qualified_name;
+};
+
+inline LocalControllerParamNodeContext & local_controller_param_node_storage()
+{
+    static LocalControllerParamNodeContext storage;
+    return storage;
+}
+
+inline std::string node_fqn(const std::string &node_namespace, const std::string &node_name)
+{
+    const std::string ns = normalize_namespace(node_namespace);
+    if (ns.empty())
+    {
+        return "/" + node_name;
+    }
+    return "/" + ns + "/" + node_name;
+}
+
+class ScopedLocalControllerParamNode
+{
+public:
+    template <typename NodeT>
+    explicit ScopedLocalControllerParamNode(const std::shared_ptr<NodeT> &node)
+      : fully_qualified_name_(node ? node_fqn(node->get_namespace(), node->get_name()) : "")
+    {
+        auto &storage = local_controller_param_node_storage();
+        storage.parameters = node ? node->get_node_parameters_interface() : nullptr;
+        storage.fully_qualified_name = fully_qualified_name_;
+    }
+
+    ~ScopedLocalControllerParamNode()
+    {
+        auto &storage = local_controller_param_node_storage();
+        if (fully_qualified_name_.empty() || storage.fully_qualified_name == fully_qualified_name_)
+        {
+            storage.parameters.reset();
+            storage.fully_qualified_name.clear();
+        }
+    }
+
+private:
+    std::string fully_qualified_name_;
+};
 
 // Utility to get a singleton node instance
 inline std::shared_ptr<rclcpp::Node> get_global_node()
@@ -98,6 +147,10 @@ T get_parameter_from_remote_node(
                     return param_value.double_value;
                 if constexpr (std::is_same<T, bool>::value)
                     return param_value.bool_value;
+            }
+            else if (param_value.type == rcl_interfaces::msg::ParameterType::PARAMETER_NOT_SET)
+            {
+                return default_value;
             }
             else
             {
@@ -187,6 +240,49 @@ inline std::vector<std::string> build_remote_node_candidates(
     return nodes;
 }
 
+template <typename T>
+bool get_parameter_from_local_controller_node(
+    const std::string &robot_name,
+    const std::string &parameter_name,
+    T &value)
+{
+    auto &storage = local_controller_param_node_storage();
+    auto parameters = storage.parameters.lock();
+    if (!parameters)
+    {
+        return false;
+    }
+
+    const auto node_candidates = build_remote_node_candidates(robot_name, "wolf_controller");
+    if (std::find(node_candidates.begin(), node_candidates.end(), storage.fully_qualified_name) == node_candidates.end())
+    {
+        return false;
+    }
+
+    if (!parameters->has_parameter(parameter_name))
+    {
+        return false;
+    }
+
+    const auto parameter = parameters->get_parameter(parameter_name);
+    if (parameter.get_type() == rclcpp::ParameterType::PARAMETER_NOT_SET)
+    {
+        return false;
+    }
+
+    try
+    {
+        value = parameter.get_value<T>();
+        return true;
+    }
+    catch (const rclcpp::ParameterTypeException &)
+    {
+        RCLCPP_ERROR(get_global_node()->get_logger(), "Parameter %s is not of expected type", parameter_name.c_str());
+    }
+
+    return false;
+}
+
 inline double get_double_parameter_from_remote_nodes(
     const std::vector<std::string> &node_candidates,
     const std::string &parameter_name,
@@ -230,6 +326,12 @@ inline double get_double_parameter_from_remote_controller_node(
     double default_value = 0.0,
     std::chrono::seconds timeout = std::chrono::seconds(WAIT_SEC))
 {
+    double local_value = default_value;
+    if (get_parameter_from_local_controller_node(robot_name, parameter_name, local_value))
+    {
+        return local_value;
+    }
+
     return get_double_parameter_from_remote_nodes(
         build_remote_node_candidates(robot_name, "wolf_controller"),
         parameter_name,
@@ -243,6 +345,12 @@ inline std::string get_string_parameter_from_remote_controller_node(
     const std::string &default_value = "",
     std::chrono::seconds timeout = std::chrono::seconds(WAIT_SEC))
 {
+    std::string local_value = default_value;
+    if (get_parameter_from_local_controller_node(robot_name, parameter_name, local_value))
+    {
+        return local_value;
+    }
+
     return get_string_parameter_from_remote_nodes(
         build_remote_node_candidates(robot_name, "wolf_controller"),
         parameter_name,
