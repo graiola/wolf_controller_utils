@@ -12,7 +12,15 @@
 
 #include <tf2_ros/buffer.h>
 #include <tf2_ros/transform_listener.h>
-#include <tf2_eigen/tf2_eigen.h>
+#if __has_include(<tf2_eigen/tf2_eigen/tf2_eigen.hpp>)
+  #include <tf2_eigen/tf2_eigen/tf2_eigen.hpp>
+#elif __has_include(<tf2_eigen/tf2_eigen/tf2_eigen.h>)
+  #include <tf2_eigen/tf2_eigen/tf2_eigen.h>
+#elif __has_include(<tf2_eigen/tf2_eigen.hpp>)
+  #include <tf2_eigen/tf2_eigen.hpp>
+#else
+  #include <tf2_eigen/tf2_eigen.h>
+#endif
 #include <Eigen/Core>
 #include <Eigen/Dense>
 
