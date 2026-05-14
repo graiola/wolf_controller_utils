@@ -329,7 +329,11 @@ inline double get_double_parameter_from_remote_controller_node(
     double local_value = default_value;
     if (get_parameter_from_local_controller_node(robot_name, parameter_name, local_value))
     {
-        return local_value;
+        if (std::isfinite(local_value))
+        {
+            return local_value;
+        }
+        return default_value;
     }
 
     return get_double_parameter_from_remote_nodes(
