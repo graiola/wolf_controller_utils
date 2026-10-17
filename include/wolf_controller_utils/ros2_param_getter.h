@@ -15,8 +15,8 @@
 namespace wolf_controller_utils
 {
 
-#define WAIT_SEC 3
-#define RETRY_ATTEMPTS 3
+#define WAIT_SEC 1
+#define RETRY_ATTEMPTS 1
 
 using GetParameters = rcl_interfaces::srv::GetParameters;
 
@@ -254,7 +254,20 @@ bool get_parameter_from_local_controller_node(
     }
 
     const auto node_candidates = build_remote_node_candidates(robot_name, "wolf_controller");
-    if (std::find(node_candidates.begin(), node_candidates.end(), storage.fully_qualified_name) == node_candidates.end())
+    bool matches = (std::find(node_candidates.begin(), node_candidates.end(), storage.fully_qualified_name) != node_candidates.end());
+    if (!matches)
+    {
+        const std::string target_suffix = "/wolf_controller";
+        if (storage.fully_qualified_name == target_suffix ||
+            (storage.fully_qualified_name.size() >= target_suffix.size() &&
+             storage.fully_qualified_name.compare(storage.fully_qualified_name.size() - target_suffix.size(), target_suffix.size(), target_suffix) == 0 &&
+             (robot_name.empty() || storage.fully_qualified_name.find(normalize_namespace(robot_name)) != std::string::npos)))
+        {
+            matches = true;
+        }
+    }
+
+    if (!matches)
     {
         return false;
     }
